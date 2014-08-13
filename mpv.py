@@ -3,6 +3,7 @@ from ctypes import *
 import threading
 import os
 import asyncio
+from warnings import warn
 
 # vim: ts=4 sw=4
 
@@ -260,7 +261,13 @@ def load_lua():
 
 class MPV:
 	""" See man mpv(1) for the details of the implemented commands. """
-	def __init__(self, loop=None, **kwargs):
+	def __init__(self, evloop=None, **kwargs):
+		""" Create an MPV instance. You should pass in an asyncio event loop that will  handle the mpv event queue via
+		the evloop argument. If you do not pass in one, one will be created for you and run in a freshly spawned thread
+		(works for prototypes but is likely not what you want).
+		
+		Any kwargs given will be passed to mpv as options. """
+
 		self.handle = _mpv_create()
 
 		self.event_callbacks = []
@@ -275,8 +282,8 @@ class MPV:
 						self._playback_cond.notify_all()
 				for callback in self.event_callbacks:
 					callback.call()
-		if loop:
-			loop.add_reader(self._event_fd, mpv_event_extractor)
+		if evloop:
+			evloop.add_reader(self._event_fd, mpv_event_extractor)
 		else:
 			def loop_runner():
 				loop = asyncio.new_event_loop()
@@ -307,8 +314,6 @@ class MPV:
 		_mpv_command(self.handle, (c_char_p*len(args))(*args))
 
 	def seek(self, amount, reference="relative", precision="default-precise"):
-		assert reference in ('relative', 'absolute', 'absolute-percent')
-		assert precision in ('default-precise', 'exact', 'keyframes')
 		self.command('seek', amount, reference, precision)
 
 	def revert_seek(self):
@@ -333,24 +338,18 @@ class MPV:
 		self.command('multiply_property', name, factor)
 
 	def screenshot(self, includes='subtitles', mode='single'):
-		assert includes in ('subtitles', 'video', 'window')
-		assert mode in ('single', 'each-frame')
 		self.command('screenshot', includes, mode)
 
 	def screenshot_to_file(self, filename, includes='subtitles'):
-		assert includes in ('subtitles', 'video', 'window')
 		self.command('screenshot_to_file', filename, includes)
 
 	def playlist_next(self, mode='weak'):
-		assert mode in ('weak', 'force')
 		self.command('playlist_next', mode)
 
 	def playlist_prev(self, mode='weak'):
-		assert mode in ('weak', 'force')
 		self.command('playlist_prev', mode)
 
 	def loadfile(self, filename, mode='replace'):
-		assert mode in ('replace', 'append', 'append-play')
 		self.command('loadfile', filename, mode)
 
 	def loadlist(self, playlist, mode='replace'):
@@ -399,8 +398,6 @@ class MPV:
 		self.command('show_progress')
 
 	def discnav(self, command):
-		assert command in ('up', 'up', 'down', 'down', 'left', 'right', 'left', 'right', 'menu', 'select',
-				'prev', 'mouse', 'mouse_move')
 		self.command('discnav', command)
 	
 	def write_watch_later_config(self):
