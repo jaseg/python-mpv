@@ -49,7 +49,7 @@ class ErrorCode:
 
 	@classmethod
 	def DEFAULT_ERROR_HANDLER(ec, *args):
-		return ValueError(_mpv_error_string(ec).encode('utf-8'), ec, *a)
+		return ValueError(_mpv_error_string(ec).decode(), ec, *a)
 
 	@classmethod
 	def raise_for_ec(kls, func, *args):
@@ -244,7 +244,7 @@ class ynbool:
 		return str(self.val)
 
 def _ensure_encoding(possibly_bytes):
-	return possibly_bytes.decode('utf8') if type(possibly_bytes) is bytes else possibly_bytes
+	return possibly_bytes.decode() if type(possibly_bytes) is bytes else possibly_bytes
 
 
 def _event_generator(handle):
@@ -299,10 +299,11 @@ class MPV:
 		_mpv_set_option_string(self.handle, b'audio-display', b'no')
 		istr = lambda o: ('yes' if o else 'no') if type(o) is bool else str(o)
 		for k,v in kwargs.items():
-			_mpv_set_option_string(self.handle, k.replace('_', '-').encode('utf8'), istr(v).encode('utf8'))
+			_mpv_set_option_string(self.handle, k.replace('_', '-').encode(), istr(v).encode())
 		_mpv_initialize(self.handle)
 	
 	def wait_for_playback(self):
+		""" Waits until playback of the current title is paused or done """
 		with self._playback_cond:
 			self._playback_cond.wait()
 
@@ -310,7 +311,8 @@ class MPV:
 #		_mpv_terminate_destroy(self.handle)
 
 	def command(self, name, *args):
-		args = [name.encode('utf8')] + [ str(arg).encode('utf8') for arg in args if arg is not None ] + [None]
+		""" Execute a raw command """
+		args = [name.encode()] + [ str(arg).encode() for arg in args if arg is not None ] + [None]
 		_mpv_command(self.handle, (c_char_p*len(args))(*args))
 
 	def seek(self, amount, reference="relative", precision="default-precise"):
@@ -426,7 +428,7 @@ class MPV:
 	
 	# Convenience functions
 	def play(self, filename):
-		self.command('loadfile', filename)
+		self.loadfile(filename)
 
 	# Complex properties
 
@@ -473,10 +475,10 @@ class MPV:
 		return self._get_dict('chapter-list/', (('title', str), ('time', float)))
 
 	def _get_dict(self, prefix, props):
-		return { name: proptype(_ensure_encoding(_mpv_get_property_string(self.handle, (prefix+name).encode('utf8')))) for name, proptype in props }
+		return { name: proptype(_ensure_encoding(_mpv_get_property_string(self.handle, (prefix+name).encode()))) for name, proptype in props }
 
 	def _get_list(self, prefix, props):
-		count = int(_ensure_encoding(_mpv_get_property_string(self.handle, (prefix+'count').encode('utf8'))))
+		count = int(_ensure_encoding(_mpv_get_property_string(self.handle, (prefix+'count').encode())))
 		return [ self._get_dict(prefix+str(index)+'/', props) for index in range(count)]
 			
 	# TODO: af, vf properties
@@ -486,9 +488,9 @@ class MPV:
 	
 def bindproperty(MPV, name, proptype, access):
 	def getter(self):
-		return proptype(_ensure_encoding(_mpv_get_property_string(self.handle, name.encode('utf8'))))
+		return proptype(_ensure_encoding(_mpv_get_property_string(self.handle, name.encode())))
 	def setter(self, value):
-		_mpv_set_property_string(self.handle, name.encode('utf8'), str(proptype(value)).encode('utf8'))
+		_mpv_set_property_string(self.handle, name.encode(), str(proptype(value)).encode())
 	def barf(*args):
 		raise NotImplementedError('Access denied')
 	setattr(MPV, name.replace('-', '_'), property(getter if 'r' in access else barf, setter if 'w' in access else barf))
