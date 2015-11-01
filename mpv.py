@@ -231,8 +231,8 @@ class ynbool:
     def __init__(self, val=False):
         self.val = bool(val and val not in (b'no', 'no'))
 
-    def __nonzero__(self):
-        return self.val
+    def __bool__(self):
+        return bool(self.val)
 
     def __str__(self):
         return 'yes' if self.val else 'no'
