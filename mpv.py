@@ -69,6 +69,10 @@ class MpvFormat(c_int):
     NODE        = 6
     NODE_ARRAY  = 7
     NODE_MAP    = 8
+    
+    def __repr__(self):
+        return ['NONE', 'STRING', 'OSD_STRING', 'FLAG', 'INT64', 'DOUBLE', 'NODE', 'NODE_ARRAY', 'NODE_MAP'][self.value]
+
 
 
 class MpvEventID(c_int):
@@ -125,8 +129,17 @@ class MpvEventProperty(Structure):
     _fields_ = [('name', c_char_p),
                 ('format', MpvFormat),
                 ('data', c_void_p)]
-    def as_dict():
-        pass # FIXME
+    def as_dict(self):
+        if self.format.value == MpvFormat.STRING:
+            proptype, _access = ALL_PROPERTIES.get(self.name, (str, None))
+            return {'name': self.name.decode(),
+                    'format': self.format,
+                    'data': self.data,
+                    'value': proptype(cast(self.data, POINTER(c_char_p)).contents.value.decode())}
+        else:
+            return {'name': self.name.decode(),
+                    'format': self.format,
+                    'data': self.data}
 
 class MpvEventLogMessage(Structure):
     _fields_ = [('prefix', c_char_p),
@@ -266,6 +279,7 @@ class MPV:
         self.handle = _mpv_create()
 
         self.event_callbacks = []
+        self._property_handlers = {}
         self._playback_cond = threading.Condition()
         def event_loop():
             for event in _event_generator(self.handle):
@@ -273,6 +287,8 @@ class MPV:
                 if devent['event_id'] in (MpvEventID.SHUTDOWN, MpvEventID.END_FILE, MpvEventID.PAUSE):
                     with self._playback_cond:
                         self._playback_cond.notify_all()
+                if devent['event_id'] == MpvEventID.PROPERTY_CHANGE:
+                    self._property_handlers[devent['reply_userdata']](devent['event'])
                 for callback in self.event_callbacks:
                     callback.call()
         self._event_thread = threading.Thread(target=event_loop, daemon=True)
@@ -398,14 +414,24 @@ class MPV:
 
     def script_message_to(self, target, *args):
         self.command('script_message_to', target, *args)
+
+    def observe_property(self, name, handler):
+        self._property_handlers[hash(handler)] = handler
+        _mpv_observe_property(self.handle, hash(handler), name.encode(), MpvFormat.STRING)
+
+    def unobserve_property(self, handler):
+        _mpv_observe_property(self.handle, hash(handler))
+        del self._property_handlers[hash(handler)]
     
     @property
     def metadata(self):
         raise NotImplementedError
 
+    @property
     def chapter_metadata(self):
         raise NotImplementedError
 
+    @property
     def vf_metadata(self):
         raise NotImplementedError
     
@@ -468,7 +494,115 @@ class MPV:
     # TODO: edition-list
     # TODO property-mapped options
 
-    
+ALL_PROPERTIES = {
+        'osd-level':                   (int,    'rw'),
+        'osd-scale':                   (float,  'rw'),
+        'loop':                        (str,    'rw'),
+        'loop-file':                   (str,    'rw'),
+        'speed':                       (float,  'rw'),
+        'filename':                    (str,    'r'),
+        'file-size':                   (int,    'r'),
+        'path':                        (str,    'r'),
+        'media-title':                 (str,    'r'),
+        'stream-pos':                  (int,    'rw'),
+        'stream-end':                  (int,    'r'),
+        'length':                      (float,  'r'),
+        'avsync':                      (float,  'r'),
+        'total-avsync-change':         (float,  'r'),
+        'drop-frame-count':            (int,    'r'),
+        'percent-pos':                 (int,    'rw'),
+        'ratio-pos':                   (float,  'rw'),
+        'time-pos':                    (float,  'rw'),
+        'time-start':                  (float,  'r'),
+        'time-remaining':              (float,  'r'),
+        'playtime-remaining':          (float,  'r'),
+        'chapter':                     (int,    'rw'),
+        'edition':                     (int,    'rw'),
+        'disc-titles':                 (int,    'r'),
+        'disc-title':                  (str,    'rw'),
+        'disc-menu-active':            (ynbool, 'r'),
+        'chapters':                    (int,    'r'),
+        'editions':                    (int,    'r'),
+        'angle':                       (int,    'rw'),
+        'pause':                       (ynbool, 'rw'),
+        'core-idle':                   (ynbool, 'r'),
+        'cache':                       (int,    'r'),
+        'cache-size':                  (int,    'rw'),
+        'pause-for-cache':             (ynbool, 'r'),
+        'eof-reached':                 (ynbool, 'r'),
+        'pts-association-mode':        (str,    'rw'),
+        'hr-seek':                     (ynbool, 'rw'),
+        'volume':                      (float,  'rw'),
+        'mute':                        (ynbool, 'rw'),
+        'audio-delay':                 (float,  'rw'),
+        'audio-format':                (str,    'r'),
+        'audio-codec':                 (str,    'r'),
+        'audio-bitrate':               (float,  'r'),
+        'audio-samplerate':            (int,    'r'),
+        'audio-channels':              (str,    'r'),
+        'aid':                         (int,    'rw'),
+        'audio':                       (int,    'rw'),
+        'balance':                     (int,    'rw'),
+        'fullscreen':                  (ynbool, 'rw'),
+        'deinterlace':                 (str,    'rw'),
+        'colormatrix':                 (str,    'rw'),
+        'colormatrix-input-range':     (str,    'rw'),
+        'colormatrix-output-range':    (str,    'rw'),
+        'colormatrix-primaries':       (str,    'rw'),
+        'ontop':                       (ynbool, 'rw'),
+        'border':                      (ynbool, 'rw'),
+        'framedrop':                   (str,    'rw'),
+        'gamma':                       (float,  'rw'),
+        'brightness':                  (int,    'rw'),
+        'contrast':                    (int,    'rw'),
+        'saturation':                  (int,    'rw'),
+        'hue':                         (int,    'rw'),
+        'hwdec':                       (ynbool, 'rw'),
+        'panscan':                     (float,  'rw'),
+        'video-format':                (str,    'r'),
+        'video-codec':                 (str,    'r'),
+        'video-bitrate':               (float,  'r'),
+        'width':                       (int,    'r'),
+        'height':                      (int,    'r'),
+        'dwidth':                      (int,    'r'),
+        'dheight':                     (int,    'r'),
+        'fps':                         (float,  'r'),
+        'estimated-vf-fps':            (float,  'r'),
+        'window-scale':                (float,  'rw'),
+        'video-aspect':                (str,    'rw'),
+        'osd-width':                   (int,    'r'),
+        'osd-height':                  (int,    'r'),
+        'osd-par':                     (float,  'r'),
+        'vid':                         (int,    'rw'),
+        'video':                       (int,    'rw'),
+        'video-align-x':               (float,  'rw'),
+        'video-align-y':               (float,  'rw'),
+        'video-pan-x':                 (int,    'rw'),
+        'video-pan-y':                 (int,    'rw'),
+        'video-zoom':                  (float,  'rw'),
+        'video-unscaled':              (ynbool, 'w'),
+        'program':                     (int,    'w'),
+        'sid':                         (int,    'rw'),
+        'secondary-sid':               (int,    'rw'),
+        'sub':                         (int,    'rw'),
+        'sub-delay':                   (float,  'rw'),
+        'sub-pos':                     (int,    'rw'),
+        'sub-visibility':              (ynbool, 'rw'),
+        'sub-forced-only':             (ynbool, 'rw'),
+        'sub-scale':                   (float,  'rw'),
+        'ass-use-margins':             (ynbool, 'rw'),
+        'ass-vsfilter-aspect-compat':  (ynbool, 'rw'),
+        'ass-style-override':          (str,    'rw'),
+        'stream-capture':              (str,    'rw'),
+        'tv-brightness':               (int,    'rw'),
+        'tv-contrast':                 (int,    'rw'),
+        'tv-saturation':               (int,    'rw'),
+        'tv-hue':                      (int,    'rw'),
+        'playlist-pos':                (int,    'rw'),
+        'playlist-count':              (int,    'r'),
+        'quvi-format':                 (str,    'rw'),
+        'seekable':                    (ynbool, 'r')}   
+
 def bindproperty(MPV, name, proptype, access):
     def getter(self):
         return proptype(_ensure_encoding(_mpv_get_property_string(self.handle, name.encode())))
@@ -478,113 +612,6 @@ def bindproperty(MPV, name, proptype, access):
         raise NotImplementedError('Access denied')
     setattr(MPV, name.replace('-', '_'), property(getter if 'r' in access else barf, setter if 'w' in access else barf))
 
-for name, proptype, access in (
-        ('osd-level',                   int,    'rw'),
-        ('osd-scale',                   float,  'rw'),
-        ('loop',                        str,    'rw'),
-        ('loop-file',                   str,    'rw'),
-        ('speed',                       float,  'rw'),
-        ('filename',                    str,    'r'),
-        ('file-size',                   int,    'r'),
-        ('path',                        str,    'r'),
-        ('media-title',                 str,    'r'),
-        ('stream-pos',                  int,    'rw'),
-        ('stream-end',                  int,    'r'),
-        ('length',                      float,  'r'),
-        ('avsync',                      float,  'r'),
-        ('total-avsync-change',         float,  'r'),
-        ('drop-frame-count',            int,    'r'),
-        ('percent-pos',                 int,    'rw'),
-        ('ratio-pos',                   float,  'rw'),
-        ('time-pos',                    float,  'rw'),
-        ('time-start',                  float,  'r'),
-        ('time-remaining',              float,  'r'),
-        ('playtime-remaining',          float,  'r'),
-        ('chapter',                     int,    'rw'),
-        ('edition',                     int,    'rw'),
-        ('disc-titles',                 int,    'r'),
-        ('disc-title',                  str,    'rw'),
-        ('disc-menu-active',            ynbool, 'r'),
-        ('chapters',                    int,    'r'),
-        ('editions',                    int,    'r'),
-        ('angle',                       int,    'rw'),
-        ('pause',                       ynbool, 'rw'),
-        ('core-idle',                   ynbool, 'r'),
-        ('cache',                       int,    'r'),
-        ('cache-size'    ,              int,    'rw'),
-        ('pause-for-cache',             ynbool, 'r'),
-        ('eof-reached',                 ynbool, 'r'),
-        ('pts-association-mode',        str,    'rw'),
-        ('hr-seek',                     ynbool, 'rw'),
-        ('volume',                      float,  'rw'),
-        ('mute',                        ynbool, 'rw'),
-        ('audio-delay',                 float,  'rw'),
-        ('audio-format',                str,    'r'),
-        ('audio-codec',                 str,    'r'),
-        ('audio-bitrate',               float,  'r'),
-        ('audio-samplerate',            int,    'r'),
-        ('audio-channels',              str,    'r'),
-        ('aid',                         int,    'rw'),
-        ('audio',                       int,    'rw'),
-        ('balance',                     int,    'rw'),
-        ('fullscreen',                  ynbool, 'rw'),
-        ('deinterlace',                 str,    'rw'),
-        ('colormatrix',                 str,    'rw'),
-        ('colormatrix-input-range',     str,    'rw'),
-        ('colormatrix-output-range',    str,    'rw'),
-        ('colormatrix-primaries',       str,    'rw'),
-        ('ontop',                       ynbool, 'rw'),
-        ('border',                      ynbool, 'rw'),
-        ('framedrop',                   str,    'rw'),
-        ('gamma',                       float,  'rw'),
-        ('brightness',                  int,    'rw'),
-        ('contrast',                    int,    'rw'),
-        ('saturation',                  int,    'rw'),
-        ('hue',                         int,    'rw'),
-        ('hwdec',                       ynbool, 'rw'),
-        ('panscan',                     float,  'rw'),
-        ('video-format',                str,    'r'),
-        ('video-codec',                 str,    'r'),
-        ('video-bitrate',               float,  'r'),
-        ('width',                       int,    'r'),
-        ('height',                      int,    'r'),
-        ('dwidth',                      int,    'r'),
-        ('dheight',                     int,    'r'),
-        ('fps',                         float,  'r'),
-        ('estimated-vf-fps',            float,  'r'),
-        ('window-scale',                float,  'rw'),
-        ('video-aspect',                str,    'rw'),
-        ('osd-width',                   int,    'r'),
-        ('osd-height',                  int,    'r'),
-        ('osd-par',                     float,  'r'),
-        ('vid',                         int,    'rw'),
-        ('video',                       int,    'rw'),
-        ('video-align-x',               float,  'rw'),
-        ('video-align-y',               float,  'rw'),
-        ('video-pan-x',                 int,    'rw'),
-        ('video-pan-y',                 int,    'rw'),
-        ('video-zoom',                  float,  'rw'),
-        ('video-unscaled',              ynbool, 'w'),
-        ('program',                     int,    'w'),
-        ('sid',                         int,    'rw'),
-        ('secondary-sid',               int,    'rw'),
-        ('sub',                         int,    'rw'),
-        ('sub-delay',                   float,  'rw'),
-        ('sub-pos',                     int,    'rw'),
-        ('sub-visibility',              ynbool, 'rw'),
-        ('sub-forced-only',             ynbool, 'rw'),
-        ('sub-scale',                   float,  'rw'),
-        ('ass-use-margins',             ynbool, 'rw'),
-        ('ass-vsfilter-aspect-compat',  ynbool, 'rw'),
-        ('ass-style-override',          str,    'rw'),
-        ('stream-capture',              str,    'rw'),
-        ('tv-brightness',               int,    'rw'),
-        ('tv-contrast',                 int,    'rw'),
-        ('tv-saturation',               int,    'rw'),
-        ('tv-hue',                      int,    'rw'),
-        ('playlist-pos',                int,    'rw'),
-        ('playlist-count',              int,    'r'),
-        ('quvi-format',                 str,    'rw'),
-        ('seekable',                    ynbool, 'r')):
+for name, (proptype, access) in ALL_PROPERTIES.items():
     bindproperty(MPV, name, proptype, access)
 
