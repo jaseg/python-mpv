@@ -54,6 +54,7 @@ class ErrorCode:
     @classmethod
     def raise_for_ec(kls, func, *args):
         ec = func(*args)
+        ec = 0 if ec > 0 else ec
         ex = kls.EXCEPTION_DICT.get(ec , kls.DEFAULT_ERROR_HANDLER)
         if ex:
             raise ex(ec, *args)
@@ -420,8 +421,11 @@ class MPV:
         _mpv_observe_property(self.handle, hash(handler), name.encode(), MpvFormat.STRING)
 
     def unobserve_property(self, handler):
-        _mpv_observe_property(self.handle, hash(handler))
-        del self._property_handlers[hash(handler)]
+        _mpv_unobserve_property(self.handle, hash(handler))
+        try:
+            del self._property_handlers[hash(handler)]
+        except KeyError:
+            pass
     
     @property
     def metadata(self):
