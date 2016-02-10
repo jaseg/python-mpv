@@ -148,7 +148,9 @@ class MpvEventLogMessage(Structure):
                 ('text', c_char_p)]
 
     def as_dict(self):
-        return { name: getattr(self, name) for name, _t in self._fields_ }
+        return { 'prefix': self.prefix.decode(),
+                 'level':  self.level.decode(),
+                 'text':   self.text.decode().rstrip() }
 
 class MpvEventEndFile(c_int):
     EOF_OR_INIT_FAILURE = 0
@@ -272,7 +274,7 @@ def load_lua():
 
 class MPV:
     """ See man mpv(1) for the details of the implemented commands. """
-    def __init__(self, **kwargs):
+    def __init__(self, log_handler=None, **kwargs):
         """ Create an MPV instance.
         
         Any kwargs given will be passed to mpv as options. """
@@ -290,10 +292,16 @@ class MPV:
                         self._playback_cond.notify_all()
                 if devent['event_id'] == MpvEventID.PROPERTY_CHANGE:
                     self._property_handlers[devent['reply_userdata']](devent['event'])
+                if devent['event_id'] == MpvEventID.LOG_MESSAGE and log_handler is not None:
+                    ev = devent['event']
+                    log_handler('{}: {}: {}'.format(ev['level'], ev['prefix'], ev['text']))
                 for callback in self.event_callbacks:
                     callback.call()
         self._event_thread = threading.Thread(target=event_loop, daemon=True)
         self._event_thread.start()
+
+        if log_handler is not None:
+            self.set_loglevel('terminal-default')
 
         _mpv_set_option_string(self.handle, b'audio-display', b'no')
         istr = lambda o: ('yes' if o else 'no') if type(o) is bool else str(o)
@@ -308,6 +316,9 @@ class MPV:
 
 #   def __del__(self):
 #       _mpv_terminate_destroy(self.handle)
+
+    def set_loglevel(self, level):
+        _mpv_request_log_messages(self.handle, level.encode())
 
     def command(self, name, *args):
         """ Execute a raw command """
