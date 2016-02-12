@@ -8,7 +8,10 @@ from warnings import warn
 # vim: ts=4 sw=4
 
 
-backend = CDLL('libmpv.so')
+if os.name == 'nt':
+    backend = CDLL('mpv-1.dll')
+else:
+    backend = CDLL('libmpv.so')
 
 
 class MpvHandle(c_void_p):
