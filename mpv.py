@@ -525,7 +525,7 @@ ALL_PROPERTIES = {
         'avsync':                      (float,  'r'),
         'total-avsync-change':         (float,  'r'),
         'drop-frame-count':            (int,    'r'),
-        'percent-pos':                 (int,    'rw'),
+        'percent-pos':                 (float,  'rw'),
         'ratio-pos':                   (float,  'rw'),
         'time-pos':                    (float,  'rw'),
         'time-start':                  (float,  'r'),
