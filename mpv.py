@@ -281,23 +281,32 @@ def load_lua():
     CDLL('liblua.so', mode=RTLD_GLOBAL)
 
 
-def _event_loop(event_handle, _playback_cond, event_callbacks, _property_handlers):
+def _event_loop(event_handle, playback_cond, event_callbacks, property_handlers):
     for event in _event_generator(event_handle):
-        devent = event.as_dict() # copy data from ctypes
-        eid = devent['event_id']
-        if eid in (MpvEventID.SHUTDOWN, MpvEventID.END_FILE, MpvEventID.PAUSE):
-            with _playback_cond:
-                _playback_cond.notify_all()
-        if eid == MpvEventID.PROPERTY_CHANGE:
-            _property_handlers[devent['reply_userdata']](devent['event'])
-        if eid == MpvEventID.LOG_MESSAGE and log_handler is not None:
-            ev = devent['event']
-            log_handler('{}: {}: {}'.format(ev['level'], ev['prefix'], ev['text']))
-        for callback in event_callbacks:
-            callback.call(devent)
-        if eid == MpvEventID.SHUTDOWN:
-            _mpv_detach_destroy(event_handle)
-            return
+        try:
+            devent = event.as_dict() # copy data from ctypes
+            eid = devent['event_id']
+            if eid in (MpvEventID.SHUTDOWN, MpvEventID.END_FILE, MpvEventID.PAUSE):
+                with playback_cond:
+                    playback_cond.notify_all()
+            if eid == MpvEventID.PROPERTY_CHANGE:
+                pc, handlerid  = devent['event'], devent['reply_userdata']&0Xffffffffffffffff
+                if handlerid in property_handlers:
+                    if 'value' in pc:
+                        property_handlers[handlerid](pc['name'], pc['value'])
+                    else:
+                        property_handlers[handlerid](pc['name'], pc['data'], pc['format'])
+            if eid == MpvEventID.LOG_MESSAGE and log_handler is not None:
+                ev = devent['event']
+                log_handler('{}: {}: {}'.format(ev['level'], ev['prefix'], ev['text']))
+            for callback in event_callbacks:
+                callback.call(devent)
+            if eid == MpvEventID.SHUTDOWN:
+                _mpv_detach_destroy(event_handle)
+                return
+        except:
+            pass # It seems that when this thread runs into an exception, the MPV core is not able to terminate properly
+                 # anymore. FIXME
 
 class MPV:
     """ See man mpv(1) for the details of the implemented commands. """
@@ -451,14 +460,13 @@ class MPV:
 
     def observe_property(self, name, handler):
         self._property_handlers[hash(handler)] = handler
-        _mpv_observe_property(self.handle, hash(handler), name.encode(), MpvFormat.STRING)
+        _mpv_observe_property(self._event_handle, hash(handler), name.encode(), MpvFormat.STRING)
 
     def unobserve_property(self, handler):
-        _mpv_unobserve_property(self.handle, hash(handler))
-        try:
-            del self._property_handlers[hash(handler)]
-        except KeyError:
-            pass
+        handlerid = hash(handler)
+        _mpv_unobserve_property(self._event_handle, handlerid)
+        if handlerid in self._property_handlers:
+            del self._property_handlers[handlerid]
     
     @property
     def metadata(self):
@@ -577,9 +585,9 @@ ALL_PROPERTIES = {
         'audio-bitrate':               (float,  'r'),
         'audio-samplerate':            (int,    'r'),
         'audio-channels':              (str,    'r'),
-        'aid':                         (int,    'rw'),
-        'audio':                       (int,    'rw'),
-        'balance':                     (int,    'rw'),
+        'aid':                         (str,    'rw'),
+        'audio':                       (str,    'rw'), # alias for aid
+        'balance':                     (float,  'rw'),
         'fullscreen':                  (ynbool, 'rw'),
         'deinterlace':                 (str,    'rw'),
         'colormatrix':                 (str,    'rw'),
@@ -610,8 +618,8 @@ ALL_PROPERTIES = {
         'osd-width':                   (int,    'r'),
         'osd-height':                  (int,    'r'),
         'osd-par':                     (float,  'r'),
-        'vid':                         (int,    'rw'),
-        'video':                       (int,    'rw'),
+        'vid':                         (str,    'rw'),
+        'video':                       (str,    'rw'), # alias for vid
         'video-align-x':               (float,  'rw'),
         'video-align-y':               (float,  'rw'),
         'video-pan-x':                 (int,    'rw'),
@@ -619,9 +627,9 @@ ALL_PROPERTIES = {
         'video-zoom':                  (float,  'rw'),
         'video-unscaled':              (ynbool, 'w'),
         'program':                     (int,    'w'),
-        'sid':                         (int,    'rw'),
-        'secondary-sid':               (int,    'rw'),
-        'sub':                         (int,    'rw'),
+        'sid':                         (str,    'rw'),
+        'sub':                         (str,    'rw'), # alias for sid
+        'secondary-sid':               (str,    'rw'),
         'sub-delay':                   (float,  'rw'),
         'sub-pos':                     (int,    'rw'),
         'sub-visibility':              (ynbool, 'rw'),
@@ -642,8 +650,12 @@ ALL_PROPERTIES = {
 
 def bindproperty(MPV, name, proptype, access):
     def getter(self):
-        value = _ensure_encoding(_mpv_get_property_string(self.handle, name.encode()))
-        return proptype(value) if value is not None else value
+        cval = _mpv_get_property_string(self.handle, name.encode())
+        if cval is None:
+            return None
+        rv = proptype(cval.decode())
+#        _mpv_free(cval) FIXME
+        return rv
     def setter(self, value):
         _mpv_set_property_string(self.handle, name.encode(), str(proptype(value)).encode())
     def barf(*args):
