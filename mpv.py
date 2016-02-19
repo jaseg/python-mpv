@@ -259,6 +259,9 @@ class ynbool:
     def __repr__(self):
         return str(self.val)
 
+    def __eq__(self, other):
+        return str(self) == other or bool(self) == other
+
 def _ensure_encoding(possibly_bytes):
     return possibly_bytes.decode() if type(possibly_bytes) is bytes else possibly_bytes
 
