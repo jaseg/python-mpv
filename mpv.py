@@ -4,6 +4,7 @@ import threading
 import os
 import asyncio
 from warnings import warn
+from functools import partial
 
 # vim: ts=4 sw=4
 
@@ -204,6 +205,7 @@ _mpv_free = backend.mpv_free
 backend.mpv_create.restype = MpvHandle
 _mpv_create = backend.mpv_create
 
+_handle_func('mpv_create_client', [c_char_p], MpvHandle)
 _handle_func('mpv_client_name', [], c_char_p)
 _handle_func('mpv_initialize')
 _handle_func('mpv_detach_destroy', [], c_int)
@@ -278,6 +280,25 @@ def load_lua():
     youtube urls. """
     CDLL('liblua.so', mode=RTLD_GLOBAL)
 
+
+def _event_loop(event_handle, _playback_cond, event_callbacks, _property_handlers):
+    for event in _event_generator(event_handle):
+        devent = event.as_dict() # copy data from ctypes
+        eid = devent['event_id']
+        if eid in (MpvEventID.SHUTDOWN, MpvEventID.END_FILE, MpvEventID.PAUSE):
+            with _playback_cond:
+                _playback_cond.notify_all()
+        if eid == MpvEventID.PROPERTY_CHANGE:
+            _property_handlers[devent['reply_userdata']](devent['event'])
+        if eid == MpvEventID.LOG_MESSAGE and log_handler is not None:
+            ev = devent['event']
+            log_handler('{}: {}: {}'.format(ev['level'], ev['prefix'], ev['text']))
+        for callback in event_callbacks:
+            callback.call(devent)
+        if eid == MpvEventID.SHUTDOWN:
+            _mpv_detach_destroy(event_handle)
+            return
+
 class MPV:
     """ See man mpv(1) for the details of the implemented commands. """
     def __init__(self, log_handler=None, **kwargs):
@@ -287,41 +308,36 @@ class MPV:
 
         self.handle = _mpv_create()
 
-        self.event_callbacks = []
-        self._property_handlers = {}
-        self._playback_cond = threading.Condition()
-        def event_loop():
-            for event in _event_generator(self.handle):
-                devent = event.as_dict() # copy data from ctypes
-                if devent['event_id'] in (MpvEventID.SHUTDOWN, MpvEventID.END_FILE, MpvEventID.PAUSE):
-                    with self._playback_cond:
-                        self._playback_cond.notify_all()
-                if devent['event_id'] == MpvEventID.PROPERTY_CHANGE:
-                    self._property_handlers[devent['reply_userdata']](devent['event'])
-                if devent['event_id'] == MpvEventID.LOG_MESSAGE and log_handler is not None:
-                    ev = devent['event']
-                    log_handler('{}: {}: {}'.format(ev['level'], ev['prefix'], ev['text']))
-                for callback in self.event_callbacks:
-                    callback.call()
-        self._event_thread = threading.Thread(target=event_loop, daemon=True)
-        self._event_thread.start()
-
-        if log_handler is not None:
-            self.set_loglevel('terminal-default')
-
         _mpv_set_option_string(self.handle, b'audio-display', b'no')
         istr = lambda o: ('yes' if o else 'no') if type(o) is bool else str(o)
         for k,v in kwargs.items():
             _mpv_set_option_string(self.handle, k.replace('_', '-').encode(), istr(v).encode())
         _mpv_initialize(self.handle)
+
+        self.event_callbacks = []
+        self._property_handlers = {}
+        self._playback_cond = threading.Condition()
+        self._event_handle = _mpv_create_client(self.handle, b'mpv-python-event-handler-thread')
+        loop = partial(_event_loop, self._event_handle, self._playback_cond, self.event_callbacks, self._property_handlers)
+        self._event_thread = threading.Thread(target=loop, daemon=True, name='MPVEventHandlerThread')
+        self._event_thread.start()
+
+        if log_handler is not None:
+            self.set_loglevel('terminal-default')
     
     def wait_for_playback(self):
         """ Waits until playback of the current title is paused or done """
         with self._playback_cond:
             self._playback_cond.wait()
 
-#   def __del__(self):
-#       _mpv_terminate_destroy(self.handle)
+    def __del__(self):
+        if self.handle:
+            self.terminate()
+
+    def terminate(self):
+        self.handle, handle = None, self.handle
+        _mpv_terminate_destroy(handle)
+        self._event_thread.join()
 
     def set_loglevel(self, level):
         _mpv_request_log_messages(self.handle, level.encode())
