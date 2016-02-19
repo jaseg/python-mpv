@@ -50,9 +50,9 @@ class ErrorCode:
             -12:    lambda *a: SystemError('Error running mpv command', *a)
         }
 
-    @classmethod
+    @staticmethod
     def DEFAULT_ERROR_HANDLER(ec, *args):
-        return ValueError(_mpv_error_string(ec).decode(), ec, *a)
+        return ValueError(_mpv_error_string(ec).decode(), ec, *args)
 
     @classmethod
     def raise_for_ec(kls, func, *args):
