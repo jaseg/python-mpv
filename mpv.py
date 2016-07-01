@@ -1,5 +1,6 @@
 
 from ctypes import *
+import ctypes.util
 import threading
 import os
 import asyncio
@@ -10,9 +11,9 @@ from functools import partial
 
 
 if os.name == 'nt':
-    backend = CDLL('mpv-1.dll')
+    backend = CDLL(ctypes.util.find_library('mpv-1.dll'))
 else:
-    backend = CDLL('libmpv.so')
+    backend = CDLL(ctypes.util.find_library('mpv'))
 
 
 class MpvHandle(c_void_p):
