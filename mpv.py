@@ -3,7 +3,6 @@ from ctypes import *
 import ctypes.util
 import threading
 import os
-import asyncio
 from warnings import warn
 from functools import partial
 
@@ -309,7 +308,7 @@ def _event_loop(event_handle, playback_cond, event_callbacks, property_handlers)
             pass # It seems that when this thread runs into an exception, the MPV core is not able to terminate properly
                  # anymore. FIXME
 
-class MPV:
+class MPV(object):
     """ See man mpv(1) for the details of the implemented commands. """
     def __init__(self, log_handler=None, **kwargs):
         """ Create an MPV instance.
@@ -329,7 +328,8 @@ class MPV:
         self._playback_cond = threading.Condition()
         self._event_handle = _mpv_create_client(self.handle, b'mpv-python-event-handler-thread')
         loop = partial(_event_loop, self._event_handle, self._playback_cond, self.event_callbacks, self._property_handlers)
-        self._event_thread = threading.Thread(target=loop, daemon=True, name='MPVEventHandlerThread')
+        self._event_thread = threading.Thread(target=loop, name='MPVEventHandlerThread')
+        self._event_thread.setDaemon(True)
         self._event_thread.start()
 
         if log_handler is not None:
