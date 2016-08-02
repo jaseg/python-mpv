@@ -19,7 +19,7 @@ class MpvHandle(c_void_p):
     pass
 
 
-class ErrorCode:
+class ErrorCode(object):
     """ For documentation on these, see mpv's libmpv/client.h """
     SUCCESS                 = 0
     EVENT_QUEUE_FULL        = -1
@@ -248,12 +248,14 @@ _handle_func('mpv_set_wakeup_callback', [WakeupCallback, c_void_p], c_int)
 _handle_func('mpv_get_wakeup_pipe', [], c_int)
 
 
-class ynbool:
+class ynbool(object):
     def __init__(self, val=False):
         self.val = bool(val and val not in (b'no', 'no'))
-
+    
     def __bool__(self):
         return bool(self.val)
+    # Python 2 only:
+    __nonzero__ = __bool__
 
     def __str__(self):
         return 'yes' if self.val else 'no'
