@@ -283,7 +283,7 @@ def load_lua():
     CDLL('liblua.so', mode=RTLD_GLOBAL)
 
 
-def _event_loop(event_handle, playback_cond, event_callbacks, property_handlers):
+def _event_loop(event_handle, playback_cond, event_callbacks, property_handlers, log_handler):
     for event in _event_generator(event_handle):
         try:
             devent = event.as_dict() # copy data from ctypes
@@ -329,7 +329,8 @@ class MPV(object):
         self._property_handlers = {}
         self._playback_cond = threading.Condition()
         self._event_handle = _mpv_create_client(self.handle, b'mpv-python-event-handler-thread')
-        loop = partial(_event_loop, self._event_handle, self._playback_cond, self.event_callbacks, self._property_handlers)
+        loop = partial(_event_loop,
+                self._event_handle, self._playback_cond, self.event_callbacks, self._property_handlers, log_handler)
         self._event_thread = threading.Thread(target=loop, name='MPVEventHandlerThread')
         self._event_thread.setDaemon(True)
         self._event_thread.start()
@@ -352,7 +353,7 @@ class MPV(object):
         self._event_thread.join()
 
     def set_loglevel(self, level):
-        _mpv_request_log_messages(self.handle, level.encode())
+        _mpv_request_log_messages(self._event_handle, level.encode())
 
     def command(self, name, *args):
         """ Execute a raw command """
