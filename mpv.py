@@ -462,8 +462,9 @@ class MPV(object):
         self.command('script_message_to', target, *args)
 
     def observe_property(self, name, handler):
-        self._property_handlers[hash(handler)] = handler
-        _mpv_observe_property(self._event_handle, hash(handler), name.encode(), MpvFormat.STRING)
+        hashval = c_ulonglong(hash(handler))
+        self._property_handlers[hashval.value] = handler
+        _mpv_observe_property(self._event_handle, hashval, name.encode(), MpvFormat.STRING)
 
     def unobserve_property(self, handler):
         handlerid = hash(handler)
