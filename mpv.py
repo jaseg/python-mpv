@@ -302,7 +302,7 @@ def _event_loop(event_handle, playback_cond, event_callbacks, property_handlers,
                 ev = devent['event']
                 log_handler('{}: {}: {}'.format(ev['level'], ev['prefix'], ev['text']))
             for callback in event_callbacks:
-                callback.call(devent)
+                callback(devent)
             if eid == MpvEventID.SHUTDOWN:
                 _mpv_detach_destroy(event_handle)
                 return
