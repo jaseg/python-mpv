@@ -626,8 +626,8 @@ ALL_PROPERTIES = {
         'video':                       (str,    'rw'), # alias for vid
         'video-align-x':               (float,  'rw'),
         'video-align-y':               (float,  'rw'),
-        'video-pan-x':                 (int,    'rw'),
-        'video-pan-y':                 (int,    'rw'),
+        'video-pan-x':                 (float,  'rw'),
+        'video-pan-y':                 (float,  'rw'),
         'video-zoom':                  (float,  'rw'),
         'video-unscaled':              (ynbool, 'w'),
         'program':                     (int,    'w'),

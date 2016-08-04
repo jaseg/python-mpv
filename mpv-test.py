@@ -38,11 +38,9 @@ class TestProperties(unittest.TestCase):
         for name, (ptype, access) in mpv.ALL_PROPERTIES.items():
             if 'r' in access:
                 name =  name.replace('-', '_')
-                try:
+                with self.subTest(property_name=name):
                     with self.swallow_mpv_errors():
                         rv = getattr(self.m, name)
-                except Exception as e:
-                    raise RuntimeError('Error while testing property', name)
                 if rv is not None: # Technically, any property can return None (even if of type e.g. int)
                     self.assertEqual(type(rv), ptype, msg=name)
 
