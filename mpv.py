@@ -77,7 +77,7 @@ class MpvFormat(c_int):
     NODE        = 6
     NODE_ARRAY  = 7
     NODE_MAP    = 8
-    
+
     def __repr__(self):
         return ['NONE', 'STRING', 'OSD_STRING', 'FLAG', 'INT64', 'DOUBLE', 'NODE', 'NODE_ARRAY', 'NODE_MAP'][self.value]
 
@@ -271,7 +271,7 @@ _handle_gl_func('mpv_opengl_cb_uninit_gl', [], c_int);
 class ynbool(object):
     def __init__(self, val=False):
         self.val = bool(val and val not in (b'no', 'no'))
-    
+
     def __bool__(self):
         return bool(self.val)
     # Python 2 only:
@@ -334,7 +334,7 @@ class MPV(object):
     """ See man mpv(1) for the details of the implemented commands. """
     def __init__(self, log_handler=None, **kwargs):
         """ Create an MPV instance.
-        
+
         Any kwargs given will be passed to mpv as options. """
 
         self.handle = _mpv_create()
@@ -357,7 +357,7 @@ class MPV(object):
 
         if log_handler is not None:
             self.set_loglevel('terminal-default')
-    
+
     def wait_for_playback(self):
         """ Waits until playback of the current title is paused or done """
         with self._playback_cond:
@@ -394,10 +394,10 @@ class MPV(object):
 
     def _set_property(self, name, value):
         self.command('set_property', name, str(value))
-    
+
     def _add_property(self, name, value=None):
         self.command('add_property', name, value)
-    
+
     def _cycle_property(self, name, direction='up'):
         self.command('cycle_property', name, direction)
 
@@ -430,7 +430,7 @@ class MPV(object):
 
     def playlist_move(self, index1, index2):
         self.command('playlist_move', index1, index2)
-    
+
     def run(self, command, *args):
         self.command('run', command, *args)
 
@@ -448,10 +448,10 @@ class MPV(object):
 
     def sub_reload(self, sub_id=None):
         self.command('sub_reload', sub_id)
-    
+
     def sub_step(self, skip):
         self.command('sub_step', skip)
-    
+
     def sub_seek(self, skip):
         self.command('sub_seek', skip)
 
@@ -466,13 +466,13 @@ class MPV(object):
 
     def discnav(self, command):
         self.command('discnav', command)
-    
+
     def write_watch_later_config(self):
         self.command('write_watch_later_config')
-    
+
     def overlay_add(self, overlay_id, x, y, file_or_fd, offset, fmt, w, h, stride):
         self.command('overlay_add', overlay_id, x, y, file_or_fd, offset, fmt, w, h, stride)
-    
+
     def overlay_remove(self, overlay_id):
         self.command('overlay_remove', overlay_id)
 
@@ -492,7 +492,7 @@ class MPV(object):
         _mpv_unobserve_property(self._event_handle, handlerid)
         if handlerid in self._property_handlers:
             del self._property_handlers[handlerid]
-    
+
     @property
     def metadata(self):
         raise NotImplementedError
@@ -504,7 +504,7 @@ class MPV(object):
     @property
     def vf_metadata(self):
         raise NotImplementedError
-    
+
     # Convenience functions
     def play(self, filename):
         self.loadfile(filename)
@@ -559,7 +559,7 @@ class MPV(object):
     def _get_list(self, prefix, props):
         count = int(_ensure_encoding(_mpv_get_property_string(self.handle, (prefix+'count').encode())))
         return [ self._get_dict(prefix+str(index)+'/', props) for index in range(count)]
-            
+
     # TODO: af, vf properties
     # TODO: edition-list
     # TODO property-mapped options
@@ -671,7 +671,7 @@ ALL_PROPERTIES = {
         'playlist-pos':                (int,    'rw'),
         'playlist-count':              (int,    'r'),
         'quvi-format':                 (str,    'rw'),
-        'seekable':                    (ynbool, 'r')}   
+        'seekable':                    (ynbool, 'r')}
 
 def bindproperty(MPV, name, proptype, access):
     def getter(self):
