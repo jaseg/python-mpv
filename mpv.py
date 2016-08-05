@@ -18,6 +18,9 @@ else:
 class MpvHandle(c_void_p):
     pass
 
+class MpvOpenGLCbContext(c_void_p):
+    pass
+
 
 class ErrorCode(object):
     """ For documentation on these, see mpv's libmpv/client.h """
@@ -111,6 +114,9 @@ class MpvEventID(c_int):
             CLIENT_MESSAGE, VIDEO_RECONFIG, AUDIO_RECONFIG, METADATA_UPDATE, SEEK, PLAYBACK_RESTART, PROPERTY_CHANGE,
             CHAPTER_CHANGE )
 
+class MpvSubApi(c_int):
+    MPV_SUB_API_OPENGL_CB   = 1
+
 class MpvEvent(Structure):
     _fields_ = [('event_id', MpvEventID),
                 ('error', c_int),
@@ -181,18 +187,23 @@ class MpvEventClientMessage(Structure):
 
 WakeupCallback = CFUNCTYPE(None, c_void_p)
 
+OpenGlCbUpdateFn = CFUNCTYPE(None, c_void_p)
+OpenGlCbGetProcAddrFn = CFUNCTYPE(None, c_void_p, c_char_p)
 
-def _handle_func(name, args=[], res=None):
+def _handle_func(name, args=[], res=None, context=MpvHandle):
     func = getattr(backend, name)
     if res is not None:
         func.restype = res
-    func.argtypes = [MpvHandle] + args
+    func.argtypes = [context] + args
     def wrapper(*args):
         if res is not None:
             return func(*args)
         else:
             ErrorCode.raise_for_ec(func, *args)
     globals()['_'+name] = wrapper
+
+def _handle_gl_func(name, args=[], res=None):
+    _handle_func(name, args, res, MpvOpenGLCbContext)
 
 backend.mpv_client_api_version.restype = c_ulong
 def _mpv_client_api_version():
@@ -246,6 +257,15 @@ _handle_func('mpv_wait_event', [c_double], POINTER(MpvEvent))
 _handle_func('mpv_wakeup', [], c_int)
 _handle_func('mpv_set_wakeup_callback', [WakeupCallback, c_void_p], c_int)
 _handle_func('mpv_get_wakeup_pipe', [], c_int)
+
+_handle_func('mpv_get_sub_api', [MpvSubApi], c_void_p)
+
+_handle_gl_func('mpv_opengl_cb_set_update_callback', [OpenGlCbUpdateFn, c_void_p])
+_handle_gl_func('mpv_opengl_cb_init_gl', [c_char_p, OpenGlCbGetProcAddrFn, c_void_p], c_int)
+_handle_gl_func('mpv_opengl_cb_draw', [c_int, c_int, c_int], c_int);
+_handle_gl_func('mpv_opengl_cb_render', [c_int, c_int], c_int);
+_handle_gl_func('mpv_opengl_cb_report_flip', [c_ulonglong], c_int);
+_handle_gl_func('mpv_opengl_cb_uninit_gl', [], c_int);
 
 
 class ynbool(object):
