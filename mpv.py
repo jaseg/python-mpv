@@ -52,14 +52,14 @@ class ErrorCode(object):
         }
 
     @staticmethod
-    def DEFAULT_ERROR_HANDLER(ec, *args):
+    def default_error_handler(ec, *args):
         return ValueError(_mpv_error_string(ec).decode(), ec, *args)
 
     @classmethod
     def raise_for_ec(kls, func, *args):
         ec = func(*args)
         ec = 0 if ec > 0 else ec
-        ex = kls.EXCEPTION_DICT.get(ec , kls.DEFAULT_ERROR_HANDLER)
+        ex = kls.EXCEPTION_DICT.get(ec , kls.default_error_handler)
         if ex:
             raise ex(ec, *args)
 
