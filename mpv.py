@@ -57,7 +57,7 @@ class ErrorCode(object):
 
     @staticmethod
     def default_error_handler(ec, *args):
-        return ValueError(_mpv_error_string(ec).decode(), ec, *args)
+        return ValueError(_mpv_error_string(ec).decode('utf-8'), ec, *args)
 
     @classmethod
     def raise_for_ec(kls, func, *args):
@@ -144,12 +144,12 @@ class MpvEventProperty(Structure):
     def as_dict(self):
         if self.format.value == MpvFormat.STRING:
             proptype, _access = ALL_PROPERTIES.get(self.name, (str, None))
-            return {'name': self.name.decode(),
+            return {'name': self.name.decode('utf-8'),
                     'format': self.format,
                     'data': self.data,
-                    'value': proptype(cast(self.data, POINTER(c_char_p)).contents.value.decode())}
+                    'value': proptype(cast(self.data, POINTER(c_char_p)).contents.value.decode('utf-8'))}
         else:
-            return {'name': self.name.decode(),
+            return {'name': self.name.decode('utf-8'),
                     'format': self.format,
                     'data': self.data}
 
@@ -159,9 +159,9 @@ class MpvEventLogMessage(Structure):
                 ('text', c_char_p)]
 
     def as_dict(self):
-        return { 'prefix': self.prefix.decode(),
-                 'level':  self.level.decode(),
-                 'text':   self.text.decode().rstrip() }
+        return { 'prefix': self.prefix.decode('utf-8'),
+                 'level':  self.level.decode('utf-8'),
+                 'text':   self.text.decode('utf-8').rstrip() }
 
 class MpvEventEndFile(c_int):
     EOF_OR_INIT_FAILURE = 0
@@ -288,7 +288,7 @@ class ynbool(object):
         return str(self) == other or bool(self) == other
 
 def _ensure_encoding(possibly_bytes):
-    return possibly_bytes.decode() if type(possibly_bytes) is bytes else possibly_bytes
+    return possibly_bytes.decode('utf-8') if type(possibly_bytes) is bytes else possibly_bytes
 
 
 def _event_generator(handle):
@@ -343,7 +343,7 @@ class MPV(object):
         _mpv_set_option_string(self.handle, b'audio-display', b'no')
         istr = lambda o: ('yes' if o else 'no') if type(o) is bool else str(o)
         for k,v in kwargs.items():
-            _mpv_set_option_string(self.handle, k.replace('_', '-').encode(), istr(v).encode())
+            _mpv_set_option_string(self.handle, k.replace('_', '-').encode('utf-8'), istr(v).encode('utf-8'))
         _mpv_initialize(self.handle)
 
         self.event_callbacks = []
@@ -374,11 +374,11 @@ class MPV(object):
         self._event_thread.join()
 
     def set_loglevel(self, level):
-        _mpv_request_log_messages(self._event_handle, level.encode())
+        _mpv_request_log_messages(self._event_handle, level.encode('utf-8'))
 
     def command(self, name, *args):
         """ Execute a raw command """
-        args = [name.encode()] + [ (arg if type(arg) is bytes else str(arg).encode())
+        args = [name.encode('utf-8')] + [ (arg if type(arg) is bytes else str(arg).encode('utf-8'))
 				for arg in args if arg is not None ] + [None]
         _mpv_command(self.handle, (c_char_p*len(args))(*args))
 
@@ -487,7 +487,7 @@ class MPV(object):
     def observe_property(self, name, handler):
         hashval = c_ulonglong(hash(handler))
         self._property_handlers[hashval.value] = handler
-        _mpv_observe_property(self._event_handle, hashval, name.encode(), MpvFormat.STRING)
+        _mpv_observe_property(self._event_handle, hashval, name.encode('utf-8'), MpvFormat.STRING)
 
     def unobserve_property(self, handler):
         handlerid = hash(handler)
@@ -556,10 +556,10 @@ class MPV(object):
         return self._get_dict('chapter-list/', (('title', str), ('time', float)))
 
     def _get_dict(self, prefix, props):
-        return { name: proptype(_ensure_encoding(_mpv_get_property_string(self.handle, (prefix+name).encode()))) for name, proptype in props }
+        return { name: proptype(_ensure_encoding(_mpv_get_property_string(self.handle, (prefix+name).encode('utf-8')))) for name, proptype in props }
 
     def _get_list(self, prefix, props):
-        count = int(_ensure_encoding(_mpv_get_property_string(self.handle, (prefix+'count').encode())))
+        count = int(_ensure_encoding(_mpv_get_property_string(self.handle, (prefix+'count').encode('utf-8'))))
         return [ self._get_dict(prefix+str(index)+'/', props) for index in range(count)]
 
     # TODO: af, vf properties
@@ -677,14 +677,14 @@ ALL_PROPERTIES = {
 
 def bindproperty(MPV, name, proptype, access):
     def getter(self):
-        cval = _mpv_get_property_string(self.handle, name.encode())
+        cval = _mpv_get_property_string(self.handle, name.encode('utf-8'))
         if cval is None:
             return None
-        rv = proptype(cval.decode())
+        rv = proptype(cval.decode('utf-8'))
 #        _mpv_free(cval) FIXME
         return rv
     def setter(self, value):
-        _mpv_set_property_string(self.handle, name.encode(), str(proptype(value)).encode())
+        _mpv_set_property_string(self.handle, name.encode('utf-8'), str(proptype(value)).encode('utf-8'))
     def barf(*args):
         raise NotImplementedError('Access denied')
     setattr(MPV, name.replace('-', '_'), property(getter if 'r' in access else barf, setter if 'w' in access else barf))
