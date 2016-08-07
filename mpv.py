@@ -7,7 +7,7 @@ import sys
 from warnings import warn
 from functools import partial
 
-# vim: ts=4 sw=4
+# vim: ts=4 sw=4 et
 fs_enc = sys.getfilesystemencoding()
 
 if os.name == 'nt':
@@ -321,7 +321,7 @@ def _event_loop(event_handle, playback_cond, event_callbacks, property_handlers,
                         property_handlers[handlerid](pc['name'], pc['data'], pc['format'])
             if eid == MpvEventID.LOG_MESSAGE and log_handler is not None:
                 ev = devent['event']
-                log_handler('{}: {}: {}'.format(ev['level'], ev['prefix'], ev['text']))
+                log_handler(ev['level'], ev['prefix'], ev['text'])
             for callback in event_callbacks:
                 callback(devent)
             if eid == MpvEventID.SHUTDOWN:
@@ -379,7 +379,7 @@ class MPV(object):
     def command(self, name, *args):
         """ Execute a raw command """
         args = [name.encode('utf-8')] + [ (arg if type(arg) is bytes else str(arg).encode('utf-8'))
-				for arg in args if arg is not None ] + [None]
+                for arg in args if arg is not None ] + [None]
         _mpv_command(self.handle, (c_char_p*len(args))(*args))
 
     def seek(self, amount, reference="relative", precision="default-precise"):
