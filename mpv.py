@@ -3,11 +3,12 @@ from ctypes import *
 import ctypes.util
 import threading
 import os
+import sys
 from warnings import warn
 from functools import partial
 
 # vim: ts=4 sw=4
-
+fs_enc = sys.getfilesystemencoding()
 
 if os.name == 'nt':
     backend = CDLL(ctypes.util.find_library('mpv-1.dll'))
@@ -377,7 +378,8 @@ class MPV(object):
 
     def command(self, name, *args):
         """ Execute a raw command """
-        args = [name.encode()] + [ str(arg).encode() for arg in args if arg is not None ] + [None]
+        args = [name.encode()] + [ (arg if type(arg) is bytes else str(arg).encode())
+				for arg in args if arg is not None ] + [None]
         _mpv_command(self.handle, (c_char_p*len(args))(*args))
 
     def seek(self, amount, reference="relative", precision="default-precise"):
@@ -408,7 +410,7 @@ class MPV(object):
         self.command('screenshot', includes, mode)
 
     def screenshot_to_file(self, filename, includes='subtitles'):
-        self.command('screenshot_to_file', filename, includes)
+        self.command('screenshot_to_file', filename.encode(fs_enc), includes)
 
     def playlist_next(self, mode='weak'):
         self.command('playlist_next', mode)
@@ -417,10 +419,10 @@ class MPV(object):
         self.command('playlist_prev', mode)
 
     def loadfile(self, filename, mode='replace'):
-        self.command('loadfile', filename, mode)
+        self.command('loadfile', filename.encode(fs_enc), mode)
 
     def loadlist(self, playlist, mode='replace'):
-        self.command('loadlist', playlist, mode)
+        self.command('loadlist', playlist.encode(fs_enc), mode)
 
     def playlist_clear(self):
         self.command('playlist_clear')
@@ -441,7 +443,7 @@ class MPV(object):
         self.command('quit_watch_later', code)
 
     def sub_add(self, filename):
-        self.command('sub_add', filename)
+        self.command('sub_add', filename.encode(fs_enc))
 
     def sub_remove(self, sub_id=None):
         self.command('sub_remove', sub_id)
