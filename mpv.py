@@ -315,10 +315,12 @@ def _event_loop(event_handle, playback_cond, event_callbacks, property_handlers,
             if eid == MpvEventID.PROPERTY_CHANGE:
                 pc, handlerid  = devent['event'], devent['reply_userdata']&0Xffffffffffffffff
                 if handlerid in property_handlers:
+                    name = pc['name']
                     if 'value' in pc:
-                        property_handlers[handlerid](pc['name'], pc['value'])
+                        proptype, _access = ALL_PROPERTIES[name]
+                        property_handlers[handlerid](name, proptype(_ensure_encoding(pc['value'])))
                     else:
-                        property_handlers[handlerid](pc['name'], pc['data'], pc['format'])
+                        property_handlers[handlerid](name, pc['data'], pc['format'])
             if eid == MpvEventID.LOG_MESSAGE and log_handler is not None:
                 ev = devent['event']
                 log_handler(ev['level'], ev['prefix'], ev['text'])
