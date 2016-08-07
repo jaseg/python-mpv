@@ -309,7 +309,7 @@ def _event_loop(event_handle, playback_cond, event_callbacks, property_handlers,
         try:
             devent = event.as_dict() # copy data from ctypes
             eid = devent['event_id']
-            if eid in (MpvEventID.SHUTDOWN, MpvEventID.END_FILE, MpvEventID.PAUSE):
+            if eid in (MpvEventID.SHUTDOWN, MpvEventID.END_FILE):
                 with playback_cond:
                     playback_cond.notify_all()
             if eid == MpvEventID.PROPERTY_CHANGE:
