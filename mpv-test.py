@@ -34,7 +34,24 @@ class TestProperties(unittest.TestCase):
         for name, (ptype, access) in mpv.ALL_PROPERTIES.items():
             self.assertTrue('r' in access or 'w' in access)
             self.assertRegex(name, '^[-0-9a-z]+$')
-            self.assertIn(ptype, (int, float, str, mpv.ynbool))
+            self.assertIn(ptype, (int, float, str, mpv.ynbool, mpv.commalist))
+
+    def test_completeness(self):
+        ledir = dir(self.m)
+        for prop in self.m.property_list:
+            if prop in ('stream-path', 'demuxer', 'mixer-active'):
+                continue # Property is deemed useless by man mpv(1)
+            if prop in ('osd-sym-cc', 'osd-ass-cc', 'working-directory'):
+                continue # Property is deemed useless by me
+            if prop in ('clock', 'keepaspect',
+                    'tv-scan', 'tv-channel', 'tv-norm', 'tv-freq',
+                    'ff-vid', 'ff-aid', 'ff-sid',
+                    'colormatrix-gamma'):
+                continue # Property is undocumented in man mpv(1) and we don't want to risk it
+            if prop in ('hwdec-active', 'hwdec-detected'):
+                continue # Property is deprecated
+            prop = prop.replace('-', '_')
+            self.assertTrue(prop in ledir, 'Property {} not found'.format(prop))
 
     def test_read(self):
         for name, (ptype, access) in mpv.ALL_PROPERTIES.items():
@@ -44,7 +61,7 @@ class TestProperties(unittest.TestCase):
                     with self.swallow_mpv_errors():
                         rv = getattr(self.m, name)
                 if rv is not None: # Technically, any property can return None (even if of type e.g. int)
-                    self.assertEqual(type(rv), ptype, msg=name)
+                    self.assertEqual(type(rv), type(ptype()))
 
     def test_write(self):
         for name, (ptype, access) in mpv.ALL_PROPERTIES.items():

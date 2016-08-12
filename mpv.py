@@ -270,6 +270,9 @@ _handle_gl_func('mpv_opengl_cb_report_flip', [c_ulonglong], c_int);
 _handle_gl_func('mpv_opengl_cb_uninit_gl', [], c_int);
 
 
+def commalist(propval=''):
+    return str(propval).split(',')
+
 class ynbool(object):
     def __init__(self, val=False):
         self.val = bool(val and val not in (b'no', 'no'))
@@ -502,18 +505,6 @@ class MPV(object):
         if handlerid in self._property_handlers:
             del self._property_handlers[handlerid]
 
-    @property
-    def metadata(self):
-        raise NotImplementedError
-
-    @property
-    def chapter_metadata(self):
-        raise NotImplementedError
-
-    @property
-    def vf_metadata(self):
-        raise NotImplementedError
-
     # Convenience functions
     def play(self, filename):
         self.loadfile(filename)
@@ -562,6 +553,12 @@ class MPV(object):
     def chapter_list(self):
         return self._get_dict('chapter-list/', (('title', str), ('time', float)))
 
+    @property
+    def vo_performance(self):
+        return self._get_dict('vo-performance/', [(metric+'-'+value, str)
+            for metric in ('upload', 'render', 'present')
+            for value in ('last', 'avg', 'peak')])
+
     def _get_dict(self, prefix, props):
         return { name: proptype(_ensure_encoding(_mpv_get_property_string(self.handle, (prefix+name).encode('utf-8')))) for name, proptype in props }
 
@@ -569,9 +566,79 @@ class MPV(object):
         count = int(_ensure_encoding(_mpv_get_property_string(self.handle, (prefix+'count').encode('utf-8'))))
         return [ self._get_dict(prefix+str(index)+'/', props) for index in range(count)]
 
-    # TODO: af, vf properties
-    # TODO: edition-list
-    # TODO property-mapped options
+    @property
+    def filtered_metadata(self):
+        raise NotImplementedError
+
+    @property
+    def metadata(self):
+        raise NotImplementedError
+
+    @property
+    def chapter_metadata(self):
+        raise NotImplementedError
+
+    @property
+    def vf_metadata(self):
+        raise NotImplementedError
+
+    @property
+    def af_metadata(self):
+        raise NotImplementedError
+    
+    @property
+    def edition_list(self):
+        raise NotImplementedError
+
+    @property
+    def _disc_titles(self):
+        raise NotImplementedError
+
+    @property
+    def audio_params(self):
+        raise NotImplementedError
+
+    @property
+    def audio_out_params(self):
+        raise NotImplementedError
+
+    @property
+    def audio_device_list(self):
+        raise NotImplementedError
+
+    @property
+    def video_frame_info(self):
+        raise NotImplementedError
+
+    @property
+    def vf(self):
+        raise NotImplementedError
+
+    @property
+    def af(self):
+        raise NotImplementedError
+
+    @property
+    def decoder_list(self):
+        raise NotImplementedError
+
+    @property
+    def encoder_list(self):
+        raise NotImplementedError
+
+    @property
+    def options(self):
+        raise NotImplementedError
+
+    @property
+    def file_local_options(self):
+        raise NotImplementedError
+
+    @property
+    def option_info(self):
+        raise NotImplementedError
+
+    # TODO: audio-device-list, decoder-list, encoder-list
 
 ALL_PROPERTIES = {
         'osd-level':                   (int,    'rw'),
@@ -585,7 +652,8 @@ ALL_PROPERTIES = {
         'media-title':                 (str,    'r'),
         'stream-pos':                  (int,    'rw'),
         'stream-end':                  (int,    'r'),
-        'length':                      (float,  'r'),
+        'length':                      (float,  'r'), # deprecated for ages now
+        'duration':                    (float,  'r'),
         'avsync':                      (float,  'r'),
         'total-avsync-change':         (float,  'r'),
         'drop-frame-count':            (int,    'r'),
@@ -607,16 +675,28 @@ ALL_PROPERTIES = {
         'core-idle':                   (ynbool, 'r'),
         'cache':                       (int,    'r'),
         'cache-size':                  (int,    'rw'),
+        'cache-free':                  (int,    'r'),
+        'cache-used':                  (int,    'r'),
+        'cache-speed':                 (int,    'r'),
+        'cache-idle':                  (ynbool, 'r'),
+        'cache-buffering-state':       (int,    'r'),
+        'paused-for-cache':            (ynbool, 'r'),
         'pause-for-cache':             (ynbool, 'r'),
         'eof-reached':                 (ynbool, 'r'),
         'pts-association-mode':        (str,    'rw'),
         'hr-seek':                     (ynbool, 'rw'),
         'volume':                      (float,  'rw'),
+        'volume-max':                  (float,  'rw'),
+        'ao-volume':                   (float,  'rw'),
         'mute':                        (ynbool, 'rw'),
+        'ao-mute':                     (ynbool, 'rw'),
+        'audio-speed-correction':      (float,  'r'),
         'audio-delay':                 (float,  'rw'),
         'audio-format':                (str,    'r'),
         'audio-codec':                 (str,    'r'),
+        'audio-codec-name':            (str,    'r'),
         'audio-bitrate':               (float,  'r'),
+        'packet-audio-bitrate':        (float,  'r'),
         'audio-samplerate':            (int,    'r'),
         'audio-channels':              (str,    'r'),
         'aid':                         (str,    'rw'),
@@ -641,6 +721,7 @@ ALL_PROPERTIES = {
         'video-format':                (str,    'r'),
         'video-codec':                 (str,    'r'),
         'video-bitrate':               (float,  'r'),
+        'packet-video-bitrate':        (float,  'r'),
         'width':                       (int,    'r'),
         'height':                      (int,    'r'),
         'dwidth':                      (int,    'r'),
@@ -660,6 +741,7 @@ ALL_PROPERTIES = {
         'video-pan-y':                 (float,  'rw'),
         'video-zoom':                  (float,  'rw'),
         'video-unscaled':              (ynbool, 'w'),
+        'video-speed-correction':      (float,  'r'),
         'program':                     (int,    'w'),
         'sid':                         (str,    'rw'),
         'sub':                         (str,    'rw'), # alias for sid
@@ -669,6 +751,8 @@ ALL_PROPERTIES = {
         'sub-visibility':              (ynbool, 'rw'),
         'sub-forced-only':             (ynbool, 'rw'),
         'sub-scale':                   (float,  'rw'),
+        'sub-bitrate':                 (float,  'r'),
+        'packet-sub-bitrate':          (float,  'r'),
         'ass-use-margins':             (ynbool, 'rw'),
         'ass-vsfilter-aspect-compat':  (ynbool, 'rw'),
         'ass-style-override':          (str,    'rw'),
@@ -678,9 +762,58 @@ ALL_PROPERTIES = {
         'tv-saturation':               (int,    'rw'),
         'tv-hue':                      (int,    'rw'),
         'playlist-pos':                (int,    'rw'),
+        'playlist-pos-1':              (int,    'rw'), # ugh.
         'playlist-count':              (int,    'r'),
         'quvi-format':                 (str,    'rw'),
-        'seekable':                    (ynbool, 'r')}
+        'seekable':                    (ynbool, 'r'),
+        'seeking':                     (ynbool, 'r'),
+        'partially-seekable':          (ynbool, 'r'),
+        'playback-abort':              (ynbool, 'r'),
+        'cursor-autohide':             (str,    'rw'),
+        'audio-device':                (str,    'rw'),
+        'current-vo':                  (str,    'r'),
+        'current-ao':                  (str,    'r'),
+        'audio-out-detected-device':   (str,    'r'),
+        'protocol-list':               (str,    'r'),
+        'mpv-version':                 (str,    'r'),
+        'mpv-configuration':           (str,    'r'),
+        'ffmpeg-version':              (str,    'r'),
+        'display-sync-active':         (ynbool, 'r'),
+        'stream-open-filename':        (str,    'rw'), # Undocumented
+        'file-format':                 (commalist,'r'), # Be careful with this one.
+        'mistimed-frame-count':        (int,    'r'),
+        'vsync-ratio':                 (float,  'r'),
+        'vo-drop-frame-count':         (int,    'r'),
+        'vo-delayed-frame-count':      (int,    'r'),
+        'playback-time':               (float,  'rw'),
+        'demuxer-cache-duration':      (float,  'r'),
+        'demuxer-cache-time':          (float,  'r'),
+        'demuxer-cache-idle':          (ynbool, 'r'),
+        'idle':                        (ynbool, 'r'),
+        'disc-title-list':             (commalist,'r'),
+        'field-dominance':             (str,    'rw'),
+        'taskbar-progress':            (ynbool, 'rw'),
+        'on-all-workspaces':           (ynbool, 'rw'),
+        'video-output-levels':         (str,    'r'),
+        'vo-configured':               (ynbool, 'r'),
+        'hwdec-current':               (str,    'r'),
+        'hwdec-interop':               (str,    'r'),
+        'estimated-frame-count':       (int,    'r'),
+        'estimated-frame-number':      (int,    'r'),
+        'sub-use-margins':             (ynbool, 'rw'),
+        'ass-force-margins':           (ynbool, 'rw'),
+        'video-rotate':                (str,    'rw'),
+        'video-stereo-mode':           (str,    'rw'),
+        'ab-loop-a':                   (str,    'rw'), # What a mess...
+        'ab-loop-b':                   (str,    'rw'),
+        'dvb-channel':                 (str,    'w'),
+        'dvb-channel-name':            (str,    'rw'),
+        'window-minimized':            (ynbool, 'r'),
+        'display-names':               (commalist, 'r'),
+        'display-fps':                 (float,  'r'), # access apparently misdocumented in the manpage
+        'estimated-display-fps':       (float,  'r'),
+        'vsync-jitter':                (float,  'r'),
+        'property-list':               (commalist,'r')}
 
 def bindproperty(MPV, name, proptype, access):
     def getter(self):
