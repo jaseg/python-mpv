@@ -11,10 +11,10 @@ from functools import partial
 
 if os.name == 'nt':
     backend = CDLL(ctypes.util.find_library('mpv-1.dll'))
-	fs_enc = 'utf-8'
+    fs_enc = 'utf-8'
 else:
     backend = CDLL(ctypes.util.find_library('mpv'))
-	fs_enc = sys.getfilesystemencoding()
+    fs_enc = sys.getfilesystemencoding()
 
 
 class MpvHandle(c_void_p):
