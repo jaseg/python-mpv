@@ -336,16 +336,19 @@ def _event_loop(event_handle, playback_cond, event_callbacks, property_handlers,
 
 class MPV(object):
     """ See man mpv(1) for the details of the implemented commands. """
-    def __init__(self, log_handler=None, **kwargs):
+    def __init__(self, *extra_mpv_flags, log_handler=None, **extra_mpv_opts):
         """ Create an MPV instance.
 
-        Any kwargs given will be passed to mpv as options. """
+        Extra arguments and extra keyword arguments will be passed to mpv as options. """
 
+        self._event_thread = None
         self.handle = _mpv_create()
 
         _mpv_set_option_string(self.handle, b'audio-display', b'no')
         istr = lambda o: ('yes' if o else 'no') if type(o) is bool else str(o)
-        for k,v in kwargs.items():
+        for flag in extra_mpv_flags:
+            _mpv_set_option_string(self.handle, flag.encode('utf-8'), b'')
+        for k,v in extra_mpv_opts.items():
             _mpv_set_option_string(self.handle, k.replace('_', '-').encode('utf-8'), istr(v).encode('utf-8'))
         _mpv_initialize(self.handle)
 
@@ -374,7 +377,8 @@ class MPV(object):
     def terminate(self):
         self.handle, handle = None, self.handle
         _mpv_terminate_destroy(handle)
-        self._event_thread.join()
+        if self._event_thread:
+            self._event_thread.join()
 
     def set_loglevel(self, level):
         _mpv_request_log_messages(self._event_handle, level.encode('utf-8'))
