@@ -6,11 +6,13 @@ import math
 import threading
 from contextlib import contextmanager
 import gc
+import os.path
 import time
 
 import mpv
 
 
+TESTVID = os.path.join(os.path.dirname(__file__), 'test.webm')
 MPV_ERRORS = [ l(ec) for ec, l in mpv.ErrorCode.EXCEPTION_DICT.items() if l ]
 
 class TestProperties(unittest.TestCase):
@@ -109,7 +111,7 @@ class ObservePropertyTest(unittest.TestCase):
         m.loop = 'no'
         m.loop = 'inf'
         m.terminate() # needed for synchronization of event thread
-        handler.has_calls([mock.call('loop', 'no'), mock.call('loop', 'inf')])
+        handler.assert_has_calls([mock.call('loop', 'no'), mock.call('loop', 'inf')])
 
 
 class TestLifecycle(unittest.TestCase):
@@ -121,6 +123,48 @@ class TestLifecycle(unittest.TestCase):
         del m
         gc.collect()
         self.assertNotIn('MPVEventHandlerThread', thread_names())
+
+    def test_flags(self):
+        with self.assertRaises(AttributeError):
+            mpv.MPV('this-option-does-not-exist')
+        m = mpv.MPV('no-video', 'cursor-autohide-fs-only', 'fs')
+        self.assertTrue(m.fullscreen)
+        self.assertEqual(m.cursor_autohide, '1000')
+
+    def test_options(self):
+        with self.assertRaises(AttributeError):
+            mpv.MPV(this_option_does_not_exists=23)
+        m = mpv.MPV(osd_level=0, loop='inf', deinterlace='no')
+        self.assertEqual(m.osd_level, 0)
+        self.assertEqual(m.loop, 'inf')
+        self.assertEqual(m.deinterlace, 'no')
+
+    def test_event_callback(self):
+        handler = mock.Mock()
+        m = mpv.MPV('no-video')
+        m.event_callbacks.append(handler)
+        m.play(TESTVID)
+        m.wait_for_playback()
+        del m
+        handler.assert_has_calls([
+                mock.call({'reply_userdata': 0, 'error': 0, 'event_id': 6, 'event': None}),
+                mock.call({'reply_userdata': 0, 'error': 0, 'event_id': 9, 'event': None}),
+                mock.call({'reply_userdata': 0, 'error': 0, 'event_id': 7, 'event': {'reason': 4}}),
+                mock.call({'reply_userdata': 0, 'error': 0, 'event_id': 11, 'event': None}),
+                mock.call({'reply_userdata': 0, 'error': 0, 'event_id': 1, 'event': None})
+            ], any_order=True)
+    
+    def test_log_handler(self):
+        handler = mock.Mock()
+        m = mpv.MPV('no-video', log_handler=handler)
+        m.play(TESTVID)
+        m.wait_for_playback()
+        del m
+        handler.assert_has_calls([
+            mock.call('info', 'cplayer', 'Playing: test.webm'),
+            mock.call('info', 'cplayer', '     Video --vid=1 (*) (vp8)'),
+            mock.call('fatal', 'cplayer', 'No video or audio streams selected.'),
+            mock.call('info', 'cplayer', '')])
 
 
 if __name__ == '__main__':
