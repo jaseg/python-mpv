@@ -32,9 +32,12 @@ def my_log(loglevel, component, message):
 
 player = mpv.MPV(log_handler=my_log, ytdl=True)
 
+# Property access, these can be changed at runtime
 player.observe_property('time-pos', lambda _property, pos: print('Now playing at {:.2f}s'.format(pos)))
 player.fullscreen = True
 player.loop = 'inf'
+# Option access, in general these require the core to reinitialize
+player['vo'] = 'opengl'
 
 player.play('https://youtu.be/DLzxrzFCyOs')
 player.wait_for_playback()

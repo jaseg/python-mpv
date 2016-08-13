@@ -31,7 +31,7 @@ class TestProperties(unittest.TestCase):
         self.m = mpv.MPV()
 
     def test_sanity(self):
-        for name, (ptype, access) in mpv.ALL_PROPERTIES.items():
+        for name, (ptype, access, *_args) in mpv.ALL_PROPERTIES.items():
             self.assertTrue('r' in access or 'w' in access)
             self.assertRegex(name, '^[-0-9a-z]+$')
             # Types and MpvFormat values
@@ -59,7 +59,7 @@ class TestProperties(unittest.TestCase):
         self.m.play(TESTVID)
         while self.m.core_idle:
             time.sleep(0.05)
-        for name, (ptype, access) in sorted(mpv.ALL_PROPERTIES.items()):
+        for name, (ptype, access, *_args) in sorted(mpv.ALL_PROPERTIES.items()):
             if 'r' in access:
                 name =  name.replace('-', '_')
                 with self.subTest(property_name=name):
@@ -72,34 +72,54 @@ class TestProperties(unittest.TestCase):
                             self.assertEqual(type(rv), type(ptype()))
 
     def test_write(self):
-        for name, (ptype, access) in sorted(mpv.ALL_PROPERTIES.items()):
+        self.m.loop = 'inf'
+        self.m.play(TESTVID)
+        while self.m.core_idle:
+            time.sleep(0.05)
+        for name, (ptype, access, *_args) in sorted(mpv.ALL_PROPERTIES.items()):
             if 'w' in access:
                 name =  name.replace('-', '_')
+                with self.subTest(property_name=name):
+                    with self.swallow_mpv_errors([
+                        mpv.ErrorCode.PROPERTY_UNAVAILABLE,
+                        mpv.ErrorCode.PROPERTY_ERROR,
+                        mpv.ErrorCode.PROPERTY_FORMAT]): # This is due to a bug with option-mapped properties in mpv 0.18.1
+                        if ptype == int:
+                            setattr(self.m, name, 0)
+                            setattr(self.m, name, 1)
+                            setattr(self.m, name, -1)
+                        elif ptype == float:
+                            setattr(self.m, name, 0.0)
+                            setattr(self.m, name, 1)
+                            setattr(self.m, name, 1.0)
+                            setattr(self.m, name, -1.0)
+                            setattr(self.m, name, math.nan)
+                        elif ptype == str:
+                            setattr(self.m, name, 'foo')
+                            setattr(self.m, name, '')
+                            setattr(self.m, name, 'bazbazbaz'*1000)
+                        elif ptype == bytes:
+                            setattr(self.m, name, b'foo')
+                            setattr(self.m, name, b'')
+                            setattr(self.m, name, b'bazbazbaz'*1000)
+                        elif ptype == bool:
+                            setattr(self.m, name, True)
+                            setattr(self.m, name, False)
+
+    def test_option_read(self):
+        self.m.loop = 'inf'
+        self.m.play(TESTVID)
+        while self.m.core_idle:
+            time.sleep(0.05)
+        for name in sorted(self.m):
+            with self.subTest(option_name=name):
                 with self.swallow_mpv_errors([
                     mpv.ErrorCode.PROPERTY_UNAVAILABLE,
-                    mpv.ErrorCode.PROPERTY_ERROR,
-                    mpv.ErrorCode.PROPERTY_FORMAT]): # This is due to a bug with option-mapped properties in mpv 0.18.1
-                    if ptype == int:
-                        setattr(self.m, name, 0)
-                        setattr(self.m, name, 1)
-                        setattr(self.m, name, -1)
-                    elif ptype == float:
-                        setattr(self.m, name, 0.0)
-                        setattr(self.m, name, 1)
-                        setattr(self.m, name, 1.0)
-                        setattr(self.m, name, -1.0)
-                        setattr(self.m, name, math.nan)
-                    elif ptype == str:
-                        setattr(self.m, name, 'foo')
-                        setattr(self.m, name, '')
-                        setattr(self.m, name, 'bazbazbaz'*1000)
-                    elif ptype == bytes:
-                        setattr(self.m, name, b'foo')
-                        setattr(self.m, name, b'')
-                        setattr(self.m, name, b'bazbazbaz'*1000)
-                    elif ptype == bool:
-                        setattr(self.m, name, True)
-                        setattr(self.m, name, False)
+                    mpv.ErrorCode.PROPERTY_NOT_FOUND,
+                    mpv.ErrorCode.PROPERTY_ERROR]):
+                    self.m[name]
+
+
     def tearDown(self):
         del self.m
 
@@ -166,7 +186,7 @@ class TestLifecycle(unittest.TestCase):
                 mock.call({'reply_userdata': 0, 'error': 0, 'event_id': 11, 'event': None}),
                 mock.call({'reply_userdata': 0, 'error': 0, 'event_id': 1, 'event': None})
             ], any_order=True)
-    
+
     def test_log_handler(self):
         handler = mock.Mock()
         m = mpv.MPV('no-video', log_handler=handler)
@@ -176,8 +196,7 @@ class TestLifecycle(unittest.TestCase):
         handler.assert_has_calls([
             mock.call('info', 'cplayer', 'Playing: test.webm'),
             mock.call('info', 'cplayer', '     Video --vid=1 (*) (vp8)'),
-            mock.call('fatal', 'cplayer', 'No video or audio streams selected.'),
-            mock.call('info', 'cplayer', '')])
+            mock.call('fatal', 'cplayer', 'No video or audio streams selected.')])
 
 
 if __name__ == '__main__':
