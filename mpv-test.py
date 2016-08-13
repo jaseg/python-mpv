@@ -17,13 +17,13 @@ MPV_ERRORS = [ l(ec) for ec, l in mpv.ErrorCode.EXCEPTION_DICT.items() if l ]
 
 class TestProperties(unittest.TestCase):
     @contextmanager
-    def swallow_mpv_errors(self):
+    def swallow_mpv_errors(self, exception_exceptions=[]):
         try:
             yield
         except Exception as e:
-            for ex in MPV_ERRORS:
-                if e.args[:2] == ex.args:
-                    break
+            if any(e.args[:2] == ex.args for ex in MPV_ERRORS):
+                if e.args[1] not in exception_exceptions:
+                    raise
             else:
                 raise
 
@@ -34,7 +34,8 @@ class TestProperties(unittest.TestCase):
         for name, (ptype, access) in mpv.ALL_PROPERTIES.items():
             self.assertTrue('r' in access or 'w' in access)
             self.assertRegex(name, '^[-0-9a-z]+$')
-            self.assertIn(ptype, (int, float, str, mpv.ynbool, mpv.commalist))
+            # Types and MpvFormat values
+            self.assertIn(ptype, [bool, int, float, str, bytes, mpv.commalist] + list(range(10)))
 
     def test_completeness(self):
         ledir = dir(self.m)
@@ -54,20 +55,30 @@ class TestProperties(unittest.TestCase):
             self.assertTrue(prop in ledir, 'Property {} not found'.format(prop))
 
     def test_read(self):
-        for name, (ptype, access) in mpv.ALL_PROPERTIES.items():
+        self.m.loop = 'inf'
+        self.m.play(TESTVID)
+        while self.m.core_idle:
+            time.sleep(0.05)
+        for name, (ptype, access) in sorted(mpv.ALL_PROPERTIES.items()):
             if 'r' in access:
                 name =  name.replace('-', '_')
                 with self.subTest(property_name=name):
-                    with self.swallow_mpv_errors():
+                    with self.swallow_mpv_errors([
+                        mpv.ErrorCode.PROPERTY_UNAVAILABLE,
+                        mpv.ErrorCode.PROPERTY_ERROR]):
                         rv = getattr(self.m, name)
-                if rv is not None: # Technically, any property can return None (even if of type e.g. int)
-                    self.assertEqual(type(rv), type(ptype()))
+                        if rv is not None and callable(ptype):
+                            # Technically, any property can return None (even if of type e.g. int)
+                            self.assertEqual(type(rv), type(ptype()))
 
     def test_write(self):
-        for name, (ptype, access) in mpv.ALL_PROPERTIES.items():
+        for name, (ptype, access) in sorted(mpv.ALL_PROPERTIES.items()):
             if 'w' in access:
                 name =  name.replace('-', '_')
-                with self.swallow_mpv_errors():
+                with self.swallow_mpv_errors([
+                    mpv.ErrorCode.PROPERTY_UNAVAILABLE,
+                    mpv.ErrorCode.PROPERTY_ERROR,
+                    mpv.ErrorCode.PROPERTY_FORMAT]): # This is due to a bug with option-mapped properties in mpv 0.18.1
                     if ptype == int:
                         setattr(self.m, name, 0)
                         setattr(self.m, name, 1)
@@ -82,28 +93,13 @@ class TestProperties(unittest.TestCase):
                         setattr(self.m, name, 'foo')
                         setattr(self.m, name, '')
                         setattr(self.m, name, 'bazbazbaz'*1000)
-                    elif ptype == mpv.ynbool:
-                        if 'r' in access:
-                            setattr(self.m, name, 'yes')
-                            self.assertTrue(getattr(self.m, name))
-                            self.assertEqual(getattr(self.m, name), True)
-                            setattr(self.m, name, b'yes')
-                            self.assertTrue(getattr(self.m, name))
-                            setattr(self.m, name, True)
-                            self.assertTrue(getattr(self.m, name))
-
-                            setattr(self.m, name, 'no')
-                            self.assertFalse(getattr(self.m, name))
-                            self.assertEqual(getattr(self.m, name), False)
-                            setattr(self.m, name, b'no')
-                            self.assertFalse(getattr(self.m, name))
-                            setattr(self.m, name, False)
-                            self.assertFalse(getattr(self.m, name))
-                        else:
-                            setattr(self.m, name, 'yes')
-                            setattr(self.m, name, b'yes')
-                            setattr(self.m, name, True)
-
+                    elif ptype == bytes:
+                        setattr(self.m, name, b'foo')
+                        setattr(self.m, name, b'')
+                        setattr(self.m, name, b'bazbazbaz'*1000)
+                    elif ptype == bool:
+                        setattr(self.m, name, True)
+                        setattr(self.m, name, False)
     def tearDown(self):
         del self.m
 

@@ -50,9 +50,11 @@ class ErrorCode(object):
             -6:     lambda *a: TypeError('Tried to set mpv option using wrong format', *a),
             -7:     lambda *a: ValueError('Invalid value for mpv option', *a),
             -8:     lambda *a: AttributeError('mpv property does not exist', *a),
-            -9:     lambda *a: TypeError('Tried to set mpv property using wrong format', *a),
+            # Currently (mpv 0.18.1) there is a bug causing a PROPERTY_FORMAT error to be returned instead of
+            # INVALID_PARAMETER when setting a property-mapped option to an invalid value.
+            -9:     lambda *a: TypeError('Tried to get/set mpv property using wrong format, or passed invalid value', *a),
             -10:    lambda *a: AttributeError('mpv property is not available', *a),
-            -11:    lambda *a: ValueError('Invalid value for mpv property', *a),
+            -11:    lambda *a: RuntimeError('Generic error getting or setting mpv property', *a),
             -12:    lambda *a: SystemError('Error running mpv command', *a)
         }
 
@@ -61,8 +63,7 @@ class ErrorCode(object):
         return ValueError(_mpv_error_string(ec).decode('utf-8'), ec, *args)
 
     @classmethod
-    def raise_for_ec(kls, func, *args):
-        ec = func(*args)
+    def raise_for_ec(kls, ec, func, *args):
         ec = 0 if ec > 0 else ec
         ex = kls.EXCEPTION_DICT.get(ec , kls.default_error_handler)
         if ex:
@@ -79,9 +80,11 @@ class MpvFormat(c_int):
     NODE        = 6
     NODE_ARRAY  = 7
     NODE_MAP    = 8
+    BYTE_ARRAY  = 9
 
     def __repr__(self):
-        return ['NONE', 'STRING', 'OSD_STRING', 'FLAG', 'INT64', 'DOUBLE', 'NODE', 'NODE_ARRAY', 'NODE_MAP'][self.value]
+        return ['NONE', 'STRING', 'OSD_STRING', 'FLAG', 'INT64', 'DOUBLE', 'NODE', 'NODE_ARRAY', 'NODE_MAP',
+                'BYTE_ARRAY'][self.value]
 
 
 
@@ -115,6 +118,43 @@ class MpvEventID(c_int):
             FILE_LOADED, TRACKS_CHANGED, TRACK_SWITCHED, IDLE, PAUSE, UNPAUSE, TICK, SCRIPT_INPUT_DISPATCH,
             CLIENT_MESSAGE, VIDEO_RECONFIG, AUDIO_RECONFIG, METADATA_UPDATE, SEEK, PLAYBACK_RESTART, PROPERTY_CHANGE,
             CHAPTER_CHANGE )
+
+
+class MpvNodeList(Structure):
+    @property
+    def array_value(self):
+        return [ self.values[i].node_value for i in range(self.num) ]
+
+    @property
+    def dict_value(self):
+        return { self.keys[i].decode('utf-8'): self.values[i].node_value for i in range(self.num) }
+
+class MpvNode(Structure):
+    _fields_ = [('val', c_longlong),
+                ('format', MpvFormat)]
+    
+    @property
+    def node_value(self):
+        return MpvNode.node_cast_value(byref(c_void_p(self.val)), self.format.value)
+
+    @staticmethod
+    def node_cast_value(v, fmt):
+        return {
+            MpvFormat.NONE:         lambda v: None,
+            MpvFormat.STRING:       lambda v: cast(v, POINTER(c_char_p)).contents.value, # We can't decode here as this might contain file names
+            MpvFormat.OSD_STRING:   lambda v: cast(v, POINTER(c_char_p)).contents.value.decode('utf-8'),
+            MpvFormat.FLAG:         lambda v: bool(cast(v, POINTER(c_int)).contents.value),
+            MpvFormat.INT64:        lambda v: cast(v, POINTER(c_longlong)).contents.value,
+            MpvFormat.DOUBLE:       lambda v: cast(v, POINTER(c_double)).contents.value,
+            MpvFormat.NODE:         lambda v: cast(v, POINTER(MpvNode)).contents.node_value,
+            MpvFormat.NODE_ARRAY:   lambda v: cast(v, POINTER(POINTER(MpvNodeList))).contents.contents.array_value,
+            MpvFormat.NODE_MAP:     lambda v: cast(v, POINTER(POINTER(MpvNodeList))).contents.contents.dict_value,
+            MpvFormat.BYTE_ARRAY:   lambda v: cast(v, POINTER(c_char_p)).contents.value,
+            }[fmt](v)
+
+MpvNodeList._fields_ = [('num', c_int),
+                        ('values', POINTER(MpvNode)),
+                        ('keys', POINTER(c_char_p))]
 
 class MpvSubApi(c_int):
     MPV_SUB_API_OPENGL_CB   = 1
@@ -192,20 +232,31 @@ WakeupCallback = CFUNCTYPE(None, c_void_p)
 OpenGlCbUpdateFn = CFUNCTYPE(None, c_void_p)
 OpenGlCbGetProcAddrFn = CFUNCTYPE(None, c_void_p, c_char_p)
 
-def _handle_func(name, args=[], res=None, context=MpvHandle):
+def _handle_func(name, args, restype, errcheck, ctx=MpvHandle):
     func = getattr(backend, name)
-    if res is not None:
-        func.restype = res
-    func.argtypes = [context] + args
-    def wrapper(*args):
-        if res is not None:
-            return func(*args)
-        else:
-            ErrorCode.raise_for_ec(func, *args)
-    globals()['_'+name] = wrapper
+    func.argtypes = [ctx] + args if ctx else args
+    if restype is not None:
+        func.restype = restype
+    if errcheck is not None:
+        func.errcheck = errcheck
+    globals()['_'+name] = func
 
-def _handle_gl_func(name, args=[], res=None):
-    _handle_func(name, args, res, MpvOpenGLCbContext)
+def bytes_free_errcheck(res, func, *args):
+    notnull_errcheck(res, func, *args)
+    rv = cast(res, c_void_p).value
+    _mpv_free(res)
+    return rv
+
+def notnull_errcheck(res, func, *args):
+    if res is None:
+        raise RuntimeError('Underspecified error in MPV when calling {} with args {!r}: NULL pointer returned.'\
+                'Please consult your local debugger.'.format(func.__name__, args))
+    return res
+
+ec_errcheck = ErrorCode.raise_for_ec
+
+def _handle_gl_func(name, args=[], restype=None):
+    _handle_func(name, args, restype, errcheck=None, ctx=MpvOpenGLCbContext)
 
 backend.mpv_client_api_version.restype = c_ulong
 def _mpv_client_api_version():
@@ -215,81 +266,58 @@ def _mpv_client_api_version():
 backend.mpv_free.argtypes = [c_void_p]
 _mpv_free = backend.mpv_free
 
+backend.mpv_free_node_contents.argtypes = [c_void_p]
+_mpv_free_node_contents = backend.mpv_free_node_contents
+
 backend.mpv_create.restype = MpvHandle
 _mpv_create = backend.mpv_create
 
-_handle_func('mpv_create_client', [c_char_p], MpvHandle)
-_handle_func('mpv_client_name', [], c_char_p)
-_handle_func('mpv_initialize')
-_handle_func('mpv_detach_destroy', [], c_int)
-_handle_func('mpv_terminate_destroy', [], c_int)
-_handle_func('mpv_load_config_file', [c_char_p])
-_handle_func('mpv_suspend', [], c_int)
-_handle_func('mpv_resume', [], c_int)
-_handle_func('mpv_get_time_us', [], c_ulonglong)
+_handle_func('mpv_create_client',           [c_char_p],                                 MpvHandle, notnull_errcheck)
+_handle_func('mpv_client_name',             [],                                         c_char_p, errcheck=None)
+_handle_func('mpv_initialize',              [],                                         c_int, ec_errcheck)
+_handle_func('mpv_detach_destroy',          [],                                         None, errcheck=None)
+_handle_func('mpv_terminate_destroy',       [],                                         None, errcheck=None)
+_handle_func('mpv_load_config_file',        [c_char_p],                                 c_int, ec_errcheck)
+_handle_func('mpv_suspend',                 [],                                         None, errcheck=None)
+_handle_func('mpv_resume',                  [],                                         None, errcheck=None)
+_handle_func('mpv_get_time_us',             [],                                         c_ulonglong, errcheck=None)
 
-_handle_func('mpv_set_option', [c_char_p, MpvFormat, c_void_p])
-_handle_func('mpv_set_option_string', [c_char_p, c_char_p])
+_handle_func('mpv_set_option',              [c_char_p, MpvFormat, c_void_p],            c_int, ec_errcheck)
+_handle_func('mpv_set_option_string',       [c_char_p, c_char_p],                       c_int, ec_errcheck)
 
-_handle_func('mpv_command', [POINTER(c_char_p)])
-_handle_func('mpv_command_string', [c_char_p, c_char_p])
-_handle_func('mpv_command_async', [c_ulonglong, POINTER(c_char_p)])
+_handle_func('mpv_command',                 [POINTER(c_char_p)],                        c_int, ec_errcheck)
+_handle_func('mpv_command_string',          [c_char_p, c_char_p],                       c_int, ec_errcheck)
+_handle_func('mpv_command_async',           [c_ulonglong, POINTER(c_char_p)],           c_int, ec_errcheck)
 
-_handle_func('mpv_set_property', [c_char_p, MpvFormat, c_void_p])
-_handle_func('mpv_set_property_string', [c_char_p, c_char_p])
-_handle_func('mpv_set_property_async', [c_ulonglong, c_char_p, MpvFormat, c_void_p])
-_handle_func('mpv_get_property', [c_char_p, MpvFormat, c_void_p])
-_handle_func('mpv_get_property_string', [c_char_p], c_char_p)
-_handle_func('mpv_get_property_osd_string', [c_char_p], c_char_p)
-_handle_func('mpv_get_property_async', [c_ulonglong, c_char_p, MpvFormat])
-_handle_func('mpv_observe_property', [c_ulonglong, c_char_p, MpvFormat])
-_handle_func('mpv_unobserve_property', [c_ulonglong])
+_handle_func('mpv_set_property',            [c_char_p, MpvFormat, c_void_p],            c_int, ec_errcheck)
+_handle_func('mpv_set_property_string',     [c_char_p, c_char_p],                       c_int, ec_errcheck)
+_handle_func('mpv_set_property_async',      [c_ulonglong, c_char_p, MpvFormat,c_void_p],c_int, ec_errcheck)
+_handle_func('mpv_get_property',            [c_char_p, MpvFormat, c_void_p],            c_int, ec_errcheck)
+_handle_func('mpv_get_property_string',     [c_char_p],                                 c_void_p, bytes_free_errcheck)
+_handle_func('mpv_get_property_osd_string', [c_char_p],                                 c_void_p, bytes_free_errcheck)
+_handle_func('mpv_get_property_async',      [c_ulonglong, c_char_p, MpvFormat],         c_int, ec_errcheck)
+_handle_func('mpv_observe_property',        [c_ulonglong, c_char_p, MpvFormat],         c_int, ec_errcheck)
+_handle_func('mpv_unobserve_property',      [c_ulonglong],                              c_int, ec_errcheck)
 
-backend.mpv_event_name.restype = c_char_p
-backend.mpv_event_name.argtypes = [c_int]
-_mpv_event_name = backend.mpv_event_name
+_handle_func('mpv_event_name',              [c_int],                                    c_char_p, errcheck=None, ctx=None)
+_handle_func('mpv_error_string',            [c_int],                                    c_char_p, errcheck=None, ctx=None)
 
-backend.mpv_error_string.restype = c_char_p
-backend.mpv_error_string.argtypes = [c_int]
-_mpv_error_string = backend.mpv_error_string
+_handle_func('mpv_request_event',           [MpvEventID, c_int],                        c_int, ec_errcheck)
+_handle_func('mpv_request_log_messages',    [c_char_p],                                 c_int, ec_errcheck)
+_handle_func('mpv_wait_event',              [c_double],                                 POINTER(MpvEvent), errcheck=None)
+_handle_func('mpv_wakeup',                  [],                                         None, errcheck=None)
+_handle_func('mpv_set_wakeup_callback',     [WakeupCallback, c_void_p],                 None, errcheck=None)
+_handle_func('mpv_get_wakeup_pipe',         [],                                         c_int, errcheck=None)
 
-_handle_func('mpv_request_event', [MpvEventID, c_int])
-_handle_func('mpv_request_log_messages', [c_char_p])
-_handle_func('mpv_wait_event', [c_double], POINTER(MpvEvent))
-_handle_func('mpv_wakeup', [], c_int)
-_handle_func('mpv_set_wakeup_callback', [WakeupCallback, c_void_p], c_int)
-_handle_func('mpv_get_wakeup_pipe', [], c_int)
+_handle_func('mpv_get_sub_api',             [MpvSubApi],                                c_void_p, notnull_errcheck)
 
-_handle_func('mpv_get_sub_api', [MpvSubApi], c_void_p)
+_handle_gl_func('mpv_opengl_cb_set_update_callback',    [OpenGlCbUpdateFn, c_void_p])
+_handle_gl_func('mpv_opengl_cb_init_gl',                [c_char_p, OpenGlCbGetProcAddrFn, c_void_p],    c_int)
+_handle_gl_func('mpv_opengl_cb_draw',                   [c_int, c_int, c_int],                          c_int)
+_handle_gl_func('mpv_opengl_cb_render',                 [c_int, c_int],                                 c_int)
+_handle_gl_func('mpv_opengl_cb_report_flip',            [c_ulonglong],                                  c_int)
+_handle_gl_func('mpv_opengl_cb_uninit_gl',              [],                                             c_int)
 
-_handle_gl_func('mpv_opengl_cb_set_update_callback', [OpenGlCbUpdateFn, c_void_p])
-_handle_gl_func('mpv_opengl_cb_init_gl', [c_char_p, OpenGlCbGetProcAddrFn, c_void_p], c_int)
-_handle_gl_func('mpv_opengl_cb_draw', [c_int, c_int, c_int], c_int);
-_handle_gl_func('mpv_opengl_cb_render', [c_int, c_int], c_int);
-_handle_gl_func('mpv_opengl_cb_report_flip', [c_ulonglong], c_int);
-_handle_gl_func('mpv_opengl_cb_uninit_gl', [], c_int);
-
-
-def commalist(propval=''):
-    return str(propval).split(',')
-
-class ynbool(object):
-    def __init__(self, val=False):
-        self.val = bool(val and val not in (b'no', 'no'))
-
-    def __bool__(self):
-        return bool(self.val)
-    # Python 2 only:
-    __nonzero__ = __bool__
-
-    def __str__(self):
-        return 'yes' if self.val else 'no'
-
-    def __repr__(self):
-        return str(self.val)
-
-    def __eq__(self, other):
-        return str(self) == other or bool(self) == other
 
 def _ensure_encoding(possibly_bytes):
     return possibly_bytes.decode('utf-8') if type(possibly_bytes) is bytes else possibly_bytes
@@ -511,54 +539,6 @@ class MPV(object):
 
     # Complex properties
 
-    _VIDEO_PARAMS_LIST = (
-            ('pixelformat',     str),
-            ('w',               int),
-            ('h',               int),
-            ('dw',              int),
-            ('dh',              int),
-            ('aspect',          float),
-            ('par',             float),
-            ('colormatrix',     str),
-            ('colorlevels',     str),
-            ('chroma-location', str),
-            ('rotate',          int))
-
-    @property
-    def video_params(self):
-        return self._get_dict('video-params/', self._VIDEO_PARAMS_LIST)
-
-    @property
-    def video_out_params(self):
-        return self._get_dict('video-out-params/', self._VIDEO_PARAMS_LIST)
-
-    @property
-    def playlist(self):
-        return self._get_list('playlist/', (('filename', str),))
-    @property
-    def track_list(self):
-        return self._get_list('track-list/', (
-                         ('id',                 int),
-                         ('type',               str),
-                         ('src-id',             int),
-                         ('title',              str),
-                         ('lang',               str),
-                         ('albumart',           ynbool),
-                         ('default',            ynbool),
-                         ('external',           ynbool),
-                         ('external-filename',  str),
-                         ('codec',              str),
-                         ('selected',           ynbool)))
-    @property
-    def chapter_list(self):
-        return self._get_dict('chapter-list/', (('title', str), ('time', float)))
-
-    @property
-    def vo_performance(self):
-        return self._get_dict('vo-performance/', [(metric+'-'+value, str)
-            for metric in ('upload', 'render', 'present')
-            for value in ('last', 'avg', 'peak')])
-
     def _get_dict(self, prefix, props):
         return { name: proptype(_ensure_encoding(_mpv_get_property_string(self.handle, (prefix+name).encode('utf-8')))) for name, proptype in props }
 
@@ -640,16 +620,21 @@ class MPV(object):
 
     # TODO: audio-device-list, decoder-list, encoder-list
 
+def commalist(propval=''):
+    return str(propval).split(',')
+
+node = MpvFormat.NODE
+
 ALL_PROPERTIES = {
         'osd-level':                   (int,    'rw'),
         'osd-scale':                   (float,  'rw'),
         'loop':                        (str,    'rw'),
         'loop-file':                   (str,    'rw'),
         'speed':                       (float,  'rw'),
-        'filename':                    (str,    'r'),
+        'filename':                    (bytes,  'r'),
         'file-size':                   (int,    'r'),
-        'path':                        (str,    'r'),
-        'media-title':                 (str,    'r'),
+        'path':                        (bytes,  'r'),
+        'media-title':                 (bytes,  'r'),
         'stream-pos':                  (int,    'rw'),
         'stream-end':                  (int,    'r'),
         'length':                      (float,  'r'), # deprecated for ages now
@@ -658,7 +643,7 @@ ALL_PROPERTIES = {
         'total-avsync-change':         (float,  'r'),
         'drop-frame-count':            (int,    'r'),
         'percent-pos':                 (float,  'rw'),
-        'ratio-pos':                   (float,  'rw'),
+#        'ratio-pos':                   (float,  'rw'),
         'time-pos':                    (float,  'rw'),
         'time-start':                  (float,  'r'),
         'time-remaining':              (float,  'r'),
@@ -667,29 +652,29 @@ ALL_PROPERTIES = {
         'edition':                     (int,    'rw'),
         'disc-titles':                 (int,    'r'),
         'disc-title':                  (str,    'rw'),
-        'disc-menu-active':            (ynbool, 'r'),
+#        'disc-menu-active':            (bool,   'r'),
         'chapters':                    (int,    'r'),
         'editions':                    (int,    'r'),
         'angle':                       (int,    'rw'),
-        'pause':                       (ynbool, 'rw'),
-        'core-idle':                   (ynbool, 'r'),
+        'pause':                       (bool,   'rw'),
+        'core-idle':                   (bool,   'r'),
         'cache':                       (int,    'r'),
         'cache-size':                  (int,    'rw'),
         'cache-free':                  (int,    'r'),
         'cache-used':                  (int,    'r'),
         'cache-speed':                 (int,    'r'),
-        'cache-idle':                  (ynbool, 'r'),
+        'cache-idle':                  (bool,   'r'),
         'cache-buffering-state':       (int,    'r'),
-        'paused-for-cache':            (ynbool, 'r'),
-        'pause-for-cache':             (ynbool, 'r'),
-        'eof-reached':                 (ynbool, 'r'),
-        'pts-association-mode':        (str,    'rw'),
-        'hr-seek':                     (ynbool, 'rw'),
+        'paused-for-cache':            (bool,   'r'),
+#        'pause-for-cache':             (bool,   'r'),
+        'eof-reached':                 (bool,   'r'),
+#        'pts-association-mode':        (str,    'rw'),
+        'hr-seek':                     (str,    'rw'),
         'volume':                      (float,  'rw'),
-        'volume-max':                  (float,  'rw'),
+        'volume-max':                  (int,    'rw'),
         'ao-volume':                   (float,  'rw'),
-        'mute':                        (ynbool, 'rw'),
-        'ao-mute':                     (ynbool, 'rw'),
+        'mute':                        (bool,   'rw'),
+        'ao-mute':                     (bool,   'rw'),
         'audio-speed-correction':      (float,  'r'),
         'audio-delay':                 (float,  'rw'),
         'audio-format':                (str,    'r'),
@@ -701,22 +686,22 @@ ALL_PROPERTIES = {
         'audio-channels':              (str,    'r'),
         'aid':                         (str,    'rw'),
         'audio':                       (str,    'rw'), # alias for aid
-        'balance':                     (float,  'rw'),
-        'fullscreen':                  (ynbool, 'rw'),
+        'balance':                     (int,    'rw'),
+        'fullscreen':                  (bool,   'rw'),
         'deinterlace':                 (str,    'rw'),
         'colormatrix':                 (str,    'rw'),
         'colormatrix-input-range':     (str,    'rw'),
-        'colormatrix-output-range':    (str,    'rw'),
+#        'colormatrix-output-range':    (str,    'rw'),
         'colormatrix-primaries':       (str,    'rw'),
-        'ontop':                       (ynbool, 'rw'),
-        'border':                      (ynbool, 'rw'),
+        'ontop':                       (bool,   'rw'),
+        'border':                      (bool,   'rw'),
         'framedrop':                   (str,    'rw'),
         'gamma':                       (float,  'rw'),
         'brightness':                  (int,    'rw'),
         'contrast':                    (int,    'rw'),
         'saturation':                  (int,    'rw'),
         'hue':                         (int,    'rw'),
-        'hwdec':                       (ynbool, 'rw'),
+        'hwdec':                       (str,    'rw'),
         'panscan':                     (float,  'rw'),
         'video-format':                (str,    'r'),
         'video-codec':                 (str,    'r'),
@@ -740,7 +725,7 @@ ALL_PROPERTIES = {
         'video-pan-x':                 (float,  'rw'),
         'video-pan-y':                 (float,  'rw'),
         'video-zoom':                  (float,  'rw'),
-        'video-unscaled':              (ynbool, 'w'),
+        'video-unscaled':              (bool,   'w'),
         'video-speed-correction':      (float,  'r'),
         'program':                     (int,    'w'),
         'sid':                         (str,    'rw'),
@@ -748,14 +733,14 @@ ALL_PROPERTIES = {
         'secondary-sid':               (str,    'rw'),
         'sub-delay':                   (float,  'rw'),
         'sub-pos':                     (int,    'rw'),
-        'sub-visibility':              (ynbool, 'rw'),
-        'sub-forced-only':             (ynbool, 'rw'),
+        'sub-visibility':              (bool,   'rw'),
+        'sub-forced-only':             (bool,   'rw'),
         'sub-scale':                   (float,  'rw'),
         'sub-bitrate':                 (float,  'r'),
         'packet-sub-bitrate':          (float,  'r'),
-        'ass-use-margins':             (ynbool, 'rw'),
-        'ass-vsfilter-aspect-compat':  (ynbool, 'rw'),
-        'ass-style-override':          (str,    'rw'),
+#        'ass-use-margins':             (bool,   'rw'),
+        'ass-vsfilter-aspect-compat':  (bool,   'rw'),
+        'ass-style-override':          (bool,   'rw'),
         'stream-capture':              (str,    'rw'),
         'tv-brightness':               (int,    'rw'),
         'tv-contrast':                 (int,    'rw'),
@@ -764,11 +749,11 @@ ALL_PROPERTIES = {
         'playlist-pos':                (int,    'rw'),
         'playlist-pos-1':              (int,    'rw'), # ugh.
         'playlist-count':              (int,    'r'),
-        'quvi-format':                 (str,    'rw'),
-        'seekable':                    (ynbool, 'r'),
-        'seeking':                     (ynbool, 'r'),
-        'partially-seekable':          (ynbool, 'r'),
-        'playback-abort':              (ynbool, 'r'),
+#        'quvi-format':                 (str,    'rw'),
+        'seekable':                    (bool,   'r'),
+        'seeking':                     (bool,   'r'),
+        'partially-seekable':          (bool,   'r'),
+        'playback-abort':              (bool,   'r'),
         'cursor-autohide':             (str,    'rw'),
         'audio-device':                (str,    'rw'),
         'current-vo':                  (str,    'r'),
@@ -778,8 +763,8 @@ ALL_PROPERTIES = {
         'mpv-version':                 (str,    'r'),
         'mpv-configuration':           (str,    'r'),
         'ffmpeg-version':              (str,    'r'),
-        'display-sync-active':         (ynbool, 'r'),
-        'stream-open-filename':        (str,    'rw'), # Undocumented
+        'display-sync-active':         (bool,   'r'),
+        'stream-open-filename':        (bytes,   'rw'), # Undocumented
         'file-format':                 (commalist,'r'), # Be careful with this one.
         'mistimed-frame-count':        (int,    'r'),
         'vsync-ratio':                 (float,  'r'),
@@ -788,45 +773,79 @@ ALL_PROPERTIES = {
         'playback-time':               (float,  'rw'),
         'demuxer-cache-duration':      (float,  'r'),
         'demuxer-cache-time':          (float,  'r'),
-        'demuxer-cache-idle':          (ynbool, 'r'),
-        'idle':                        (ynbool, 'r'),
+        'demuxer-cache-idle':          (bool,   'r'),
+        'idle':                        (bool,   'r'),
         'disc-title-list':             (commalist,'r'),
         'field-dominance':             (str,    'rw'),
-        'taskbar-progress':            (ynbool, 'rw'),
-        'on-all-workspaces':           (ynbool, 'rw'),
+        'taskbar-progress':            (bool,   'rw'),
+        'on-all-workspaces':           (bool,   'rw'),
         'video-output-levels':         (str,    'r'),
-        'vo-configured':               (ynbool, 'r'),
+        'vo-configured':               (bool,   'r'),
         'hwdec-current':               (str,    'r'),
         'hwdec-interop':               (str,    'r'),
         'estimated-frame-count':       (int,    'r'),
         'estimated-frame-number':      (int,    'r'),
-        'sub-use-margins':             (ynbool, 'rw'),
-        'ass-force-margins':           (ynbool, 'rw'),
+        'sub-use-margins':             (bool,   'rw'),
+        'ass-force-margins':           (bool,   'rw'),
         'video-rotate':                (str,    'rw'),
         'video-stereo-mode':           (str,    'rw'),
-        'ab-loop-a':                   (str,    'rw'), # What a mess...
-        'ab-loop-b':                   (str,    'rw'),
+        'ab-loop-a':                   (str,    'r'), # What a mess...
+        'ab-loop-b':                   (str,    'r'),
         'dvb-channel':                 (str,    'w'),
         'dvb-channel-name':            (str,    'rw'),
-        'window-minimized':            (ynbool, 'r'),
+        'window-minimized':            (bool,   'r'),
         'display-names':               (commalist, 'r'),
         'display-fps':                 (float,  'r'), # access apparently misdocumented in the manpage
         'estimated-display-fps':       (float,  'r'),
         'vsync-jitter':                (float,  'r'),
+        'video-params':                (node,   'r'),
+        'video-out-params':            (node,   'r'),
+        'track-list':                  (node,   'r'),
+        'playlist':                    (node,   'r'),
+        'chapter-list':                (node,   'r'),
+        'vo-performance':              (node,   'r'),
         'property-list':               (commalist,'r')}
 
 def bindproperty(MPV, name, proptype, access):
     def getter(self):
-        cval = _mpv_get_property_string(self.handle, name.encode('utf-8'))
-        if cval is None:
-            return None
-        rv = proptype(cval.decode('utf-8'))
-#        _mpv_free(cval) FIXME
+        fmt = {int:         MpvFormat.INT64,
+               float:       MpvFormat.DOUBLE,
+               bool:        MpvFormat.FLAG,
+               str:         MpvFormat.STRING,
+               bytes:       MpvFormat.STRING,
+               commalist:   MpvFormat.STRING,
+               MpvFormat.NODE: MpvFormat.NODE}[proptype]
+
+        out = cast(create_string_buffer(sizeof(c_void_p)), c_void_p)
+        outptr = byref(out)
+        cval = _mpv_get_property(self.handle, name.encode('utf-8'), fmt, outptr)
+        rv = MpvNode.node_cast_value(outptr, fmt)
+        if proptype is str:
+            rv = rv.decode('utf-8')
+        elif proptype is commalist:
+            rv = proptype(rv.decode('utf-8'))
+
+        if proptype is str:
+            _mpv_free(out)
+        elif proptype is MpvFormat.NODE:
+            _mpv_free_node_contents(outptr)
+
         return rv
+
     def setter(self, value):
-        _mpv_set_property_string(self.handle, name.encode('utf-8'), str(proptype(value)).encode('utf-8'))
+        ename = name.encode('utf-8')
+        if type(value) is bytes:
+            _mpv_set_property_string(self.handle, ename, value)
+        elif type(value) is bool:
+            _mpv_set_property_string(self.handle, ename, b'yes' if value else b'no')
+        elif proptype in (str, int, float):
+            _mpv_set_property_string(self.handle, ename, str(proptype(value)).encode('utf-8'))
+        else:
+            raise TypeError('Cannot set {} property {} to value of type {}'.format(proptype, name, type(value)))
+
     def barf(*args):
         raise NotImplementedError('Access denied')
+
     setattr(MPV, name.replace('-', '_'), property(getter if 'r' in access else barf, setter if 'w' in access else barf))
 
 for name, (proptype, access) in ALL_PROPERTIES.items():
