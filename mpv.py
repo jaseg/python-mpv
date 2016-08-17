@@ -6,6 +6,7 @@ import os
 import sys
 from warnings import warn
 from functools import partial
+import re
 
 # vim: ts=4 sw=4 et
 
@@ -222,7 +223,7 @@ class MpvEventClientMessage(Structure):
                 ('args', POINTER(c_char_p))]
 
     def as_dict(self):
-        return { 'args': [ self.args[i].value for i in range(self.num_args.value) ] }
+        return { 'args': [ self.args[i].decode('utf-8') for i in range(self.num_args) ] }
 
 WakeupCallback = CFUNCTYPE(None, c_void_p)
 
@@ -333,7 +334,7 @@ def load_lua():
     CDLL('liblua.so', mode=RTLD_GLOBAL)
 
 
-def _event_loop(event_handle, playback_cond, event_callbacks, property_handlers, log_handler):
+def _event_loop(event_handle, playback_cond, event_callbacks, message_handlers, property_handlers, log_handler):
     for event in _event_generator(event_handle):
         try:
             devent = event.as_dict() # copy data from ctypes
@@ -353,12 +354,19 @@ def _event_loop(event_handle, playback_cond, event_callbacks, property_handlers,
             if eid == MpvEventID.LOG_MESSAGE and log_handler is not None:
                 ev = devent['event']
                 log_handler(ev['level'], ev['prefix'], ev['text'])
+            if eid == MpvEventID.CLIENT_MESSAGE:
+                # {'event': {'args': ['key-binding', 'foo', 'u-', 'g']}, 'reply_userdata': 0, 'error': 0, 'event_id': 16}
+                target, *args = devent['event']['args']
+                if target in message_handlers:
+                    message_handlers[target](*args)
             for callback in event_callbacks:
                 callback(devent)
             if eid == MpvEventID.SHUTDOWN:
                 _mpv_detach_destroy(event_handle)
                 return
-        except:
+        except Exception as e:
+            #import traceback
+            #traceback.print_exc()
             pass # It seems that when this thread runs into an exception, the MPV core is not able to terminate properly
                  # anymore. FIXME
 
@@ -380,12 +388,14 @@ class MPV(object):
             _mpv_set_option_string(self.handle, k.replace('_', '-').encode('utf-8'), istr(v).encode('utf-8'))
         _mpv_initialize(self.handle)
 
-        self.event_callbacks = []
+        self._event_callbacks = []
         self._property_handlers = {}
+        self._message_handlers = {}
+        self._key_binding_handlers = {}
         self._playback_cond = threading.Condition()
-        self._event_handle = _mpv_create_client(self.handle, b'mpv-python-event-handler-thread')
-        loop = partial(_event_loop,
-                self._event_handle, self._playback_cond, self.event_callbacks, self._property_handlers, log_handler)
+        self._event_handle = _mpv_create_client(self.handle, b'py_event_handler')
+        loop = partial(_event_loop, self._event_handle, self._playback_cond, self._event_callbacks,
+                self._message_handlers, self._property_handlers, log_handler)
         self._event_thread = threading.Thread(target=loop, name='MPVEventHandlerThread')
         self._event_thread.setDaemon(True)
         self._event_thread.start()
@@ -526,6 +536,49 @@ class MPV(object):
         _mpv_unobserve_property(self._event_handle, handlerid)
         if handlerid in self._property_handlers:
             del self._property_handlers[handlerid]
+
+    def register_message_handler(self, target, handler):
+        self._message_handlers[target] = handler
+
+    def unregister_message_handler(self, target):
+        del self._message_handlers[target]
+
+    def register_event_callback(self, callback):
+        self._event_callbacks.append(callback)
+
+    def unregister_event_callback(self, callback):
+        self._event_callbacks.remove(callback)
+
+    @staticmethod
+    def _binding_name(callback):
+        return 'py_kb_{:016x}'.format(hash(callback)&0xffffffffffffffff)
+
+    def register_key_binding(self, keydef, callback):
+        """ BIG FAT WARNING: mpv's key binding mechanism is pretty powerful. This means, you essentially get arbitrary
+        code exectution through key bindings. This interface makes some limited effort to sanitize the keydef given in
+        the first parameter, but YOU SHOULD NOT RELY ON THIS IN FOR SECURITY. If your input comes from config files,
+        this is completely fine--but, if you are about to pass untrusted input into this parameter, better double-check
+        whether this is secure in your case. """
+        if not re.match(r'(Shift+)?(Ctrl+)?(Alt+)?(Meta+)?\w+', keydef):
+            raise ValueError('Invalid keydef. Expected format: [Shift+][Ctrl+][Alt+][Meta+]<key>\n'
+                    '<key> is either the literal character the key produces (ASCII or Unicode character), or a '
+                    'symbolic name (as printed by --input-keylist')
+        binding_name = MPV._binding_name(callback)
+        self._key_binding_handlers[binding_name] = callback
+        print('Registering', binding_name)
+        self.command('define-section',
+                binding_name, '{} script-binding py_event_handler/{}'.format(keydef, binding_name), 'force')
+        self.command('enable-section', binding_name)
+        self.register_message_handler('key-binding', self._handle_key_binding_message)
+
+    def _handle_key_binding_message(self, binding_name, key_state, key_name):
+        self._key_binding_handlers[binding_name](key_state, key_name)
+
+    def unregister_key_binding(self, callback):
+        binding_name = MPV._binding_name(callback)
+        self.command('disable-section', binding_name)
+        self.command('define-section', binding_name, '')
+        del self._key_binding_handlers[binding_name]
 
     # Convenience functions
     def play(self, filename):

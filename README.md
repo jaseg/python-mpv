@@ -30,7 +30,7 @@ import mpv
 def my_log(loglevel, component, message):
 	print('[{}] {}: {}'.format(loglevel, component, message))
 
-player = mpv.MPV(log_handler=my_log, ytdl=True)
+player = mpv.MPV(log_handler=my_log, ytdl=True, input_default_bindings=True, input_vo_keyboard=True)
 
 # Property access, these can be changed at runtime
 player.observe_property('time-pos', lambda _property, pos: print('Now playing at {:.2f}s'.format(pos)))
@@ -38,6 +38,11 @@ player.fullscreen = True
 player.loop = 'inf'
 # Option access, in general these require the core to reinitialize
 player['vo'] = 'opengl'
+
+def my_q_binding(state, key):
+    if state[0] == 'd':
+        print('THERE IS NO ESCAPE')
+player.register_key_binding('q', my_q_binding)
 
 player.play('https://youtu.be/DLzxrzFCyOs')
 player.wait_for_playback()

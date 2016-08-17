@@ -175,17 +175,20 @@ class TestLifecycle(unittest.TestCase):
     def test_event_callback(self):
         handler = mock.Mock()
         m = mpv.MPV('no-video')
-        m.event_callbacks.append(handler)
+        m.register_event_callback(handler)
         m.play(TESTVID)
         m.wait_for_playback()
-        del m
+
+        m.unregister_event_callback(handler)
         handler.assert_has_calls([
                 mock.call({'reply_userdata': 0, 'error': 0, 'event_id': 6, 'event': None}),
                 mock.call({'reply_userdata': 0, 'error': 0, 'event_id': 9, 'event': None}),
                 mock.call({'reply_userdata': 0, 'error': 0, 'event_id': 7, 'event': {'reason': 4}}),
-                mock.call({'reply_userdata': 0, 'error': 0, 'event_id': 11, 'event': None}),
-                mock.call({'reply_userdata': 0, 'error': 0, 'event_id': 1, 'event': None})
             ], any_order=True)
+        handler.reset_mock()
+
+        del m
+        handler.assert_not_called()
 
     def test_log_handler(self):
         handler = mock.Mock()
