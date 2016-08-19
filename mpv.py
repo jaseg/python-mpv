@@ -556,10 +556,10 @@ class MPV(object):
         self._event_callbacks.remove(callback)
 
     @staticmethod
-    def _binding_name(callback):
-        return 'py_kb_{:016x}'.format(hash(callback)&0xffffffffffffffff)
+    def _binding_name(callback_or_cmd):
+        return 'py_kb_{:016x}'.format(hash(callback_or_cmd)&0xffffffffffffffff)
 
-    def register_key_binding(self, keydef, callback):
+    def register_key_binding(self, keydef, callback_or_cmd, mode='force'):
         """ BIG FAT WARNING: mpv's key binding mechanism is pretty powerful. This means, you essentially get arbitrary
         code exectution through key bindings. This interface makes some limited effort to sanitize the keydef given in
         the first parameter, but YOU SHOULD NOT RELY ON THIS IN FOR SECURITY. If your input comes from config files,
@@ -569,22 +569,29 @@ class MPV(object):
             raise ValueError('Invalid keydef. Expected format: [Shift+][Ctrl+][Alt+][Meta+]<key>\n'
                     '<key> is either the literal character the key produces (ASCII or Unicode character), or a '
                     'symbolic name (as printed by --input-keylist')
-        binding_name = MPV._binding_name(callback)
-        self._key_binding_handlers[binding_name] = callback
-        print('Registering', binding_name)
-        self.command('define-section',
-                binding_name, '{} script-binding py_event_handler/{}'.format(keydef, binding_name), 'force')
+        binding_name = MPV._binding_name(keydef)
+        if callable(callback_or_cmd):
+            self._key_binding_handlers[binding_name] = callback_or_cmd
+            self.register_message_handler('key-binding', self._handle_key_binding_message)
+            self.command('define-section',
+                    binding_name, '{} script-binding py_event_handler/{}'.format(keydef, binding_name), mode)
+        elif isinstance(callback_or_cmd, str):
+            self.command('define-section', binding_name, '{} {}'.format(keydef, callback_or_cmd), mode)
+        else:
+            raise TypeError('register_key_binding expects either an str with an mpv command or a python callable.')
         self.command('enable-section', binding_name)
-        self.register_message_handler('key-binding', self._handle_key_binding_message)
 
     def _handle_key_binding_message(self, binding_name, key_state, key_name):
         self._key_binding_handlers[binding_name](key_state, key_name)
 
-    def unregister_key_binding(self, callback):
-        binding_name = MPV._binding_name(callback)
+    def unregister_key_binding(self, keydef):
+        binding_name = MPV._binding_name(keydef)
         self.command('disable-section', binding_name)
         self.command('define-section', binding_name, '')
-        del self._key_binding_handlers[binding_name]
+        if callable(callback):
+            del self._key_binding_handlers[binding_name]
+            if not self._key_binding_handlers:
+                self.unregister_message_handler('key-binding')
 
     # Convenience functions
     def play(self, filename):
