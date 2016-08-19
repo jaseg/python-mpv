@@ -7,6 +7,7 @@ import sys
 from warnings import warn
 from functools import partial
 import re
+import traceback
 
 # vim: ts=4 sw=4 et
 
@@ -290,6 +291,7 @@ _handle_func('mpv_set_option',              [c_char_p, MpvFormat, c_void_p],    
 _handle_func('mpv_set_option_string',       [c_char_p, c_char_p],                       c_int, ec_errcheck)
 
 _handle_func('mpv_command',                 [POINTER(c_char_p)],                        c_int, ec_errcheck)
+_handle_func('mpv_command_node',            [POINTER(MpvNode), POINTER(MpvNode)],       c_int, ec_errcheck)
 _handle_func('mpv_command_string',          [c_char_p, c_char_p],                       c_int, ec_errcheck)
 _handle_func('mpv_command_async',           [c_ulonglong, POINTER(c_char_p)],           c_int, ec_errcheck)
 
@@ -371,8 +373,7 @@ def _event_loop(event_handle, playback_cond, event_callbacks, message_handlers, 
                 _mpv_detach_destroy(event_handle)
                 return
         except Exception as e:
-            #import traceback
-            #traceback.print_exc()
+            traceback.print_exc()
             pass # It seems that when this thread runs into an exception, the MPV core is not able to terminate properly
                  # anymore. FIXME
 
@@ -432,6 +433,39 @@ class MPV(object):
         args = [name.encode('utf-8')] + [ (arg if type(arg) is bytes else str(arg).encode('utf-8'))
                 for arg in args if arg is not None ] + [None]
         _mpv_command(self.handle, (c_char_p*len(args))(*args))
+    
+    def command_node(self, name, *args, decode_str=True):
+        newargs = [name.encode('utf-8')]
+        for arg in args:
+            if type(arg) is str:
+                newargs.append(arg.encode('utf-8'))
+            elif type(arg) is bytes:
+                newargs.append(arg)
+            else:
+                raise TypeError('Only str args supported')
+        nargs = len(newargs)
+
+        gc_cache = []
+        VAType = MpvNode * nargs
+        varr = VAType()
+        for i, arg in enumerate(newargs):
+            argp = c_char_p(arg)
+            gc_cache.append(argp) # save to avoid gc
+            varr[i].format = MpvFormat.STRING
+            varr[i].val = cast(byref(argp), POINTER(c_longlong)).contents.value
+
+        value_array = cast(varr, POINTER(MpvNode))
+        nodelist = MpvNodeList(num=nargs, values=value_array, keys=None)
+
+        args = MpvNode(format=MpvFormat.NODE_ARRAY, val=addressof(nodelist))
+
+        out = cast(create_string_buffer(sizeof(MpvNode)), POINTER(MpvNode))
+
+        cval = _mpv_command_node(self.handle, byref(args), out)
+
+        rv = out.contents.node_value(decode_str)
+        mpv_free_node_contents(out)
+        return rv
 
     def seek(self, amount, reference="relative", precision="default-precise"):
         self.command('seek', amount, reference, precision)
