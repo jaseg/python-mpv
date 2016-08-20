@@ -6,7 +6,9 @@ import os
 import sys
 from warnings import warn
 from functools import partial
+import collections
 import re
+import traceback
 
 # vim: ts=4 sw=4 et
 
@@ -30,6 +32,9 @@ class MpvHandle(c_void_p):
 class MpvOpenGLCbContext(c_void_p):
     pass
 
+
+class PropertyUnavailableError(AttributeError):
+    pass
 
 class ErrorCode(object):
     """ For documentation on these, see mpv's libmpv/client.h """
@@ -60,7 +65,7 @@ class ErrorCode(object):
             # Currently (mpv 0.18.1) there is a bug causing a PROPERTY_FORMAT error to be returned instead of
             # INVALID_PARAMETER when setting a property-mapped option to an invalid value.
             -9:     lambda *a: TypeError('Tried to get/set mpv property using wrong format, or passed invalid value', *a),
-            -10:    lambda *a: AttributeError('mpv property is not available', *a),
+            -10:    lambda *a: PropertyUnavailableError('mpv property is not available', *a),
             -11:    lambda *a: RuntimeError('Generic error getting or setting mpv property', *a),
             -12:    lambda *a: SystemError('Error running mpv command', *a) }
 
@@ -87,6 +92,9 @@ class MpvFormat(c_int):
     NODE_ARRAY  = 7
     NODE_MAP    = 8
     BYTE_ARRAY  = 9
+
+    def __eq__(self, other):
+        return self is other or self.value == other or self.value == int(other)
 
     def __repr__(self):
         return ['NONE', 'STRING', 'OSD_STRING', 'FLAG', 'INT64', 'DOUBLE', 'NODE', 'NODE_ARRAY', 'NODE_MAP',
@@ -124,6 +132,12 @@ class MpvEventID(c_int):
             FILE_LOADED, TRACKS_CHANGED, TRACK_SWITCHED, IDLE, PAUSE, UNPAUSE, TICK, SCRIPT_INPUT_DISPATCH,
             CLIENT_MESSAGE, VIDEO_RECONFIG, AUDIO_RECONFIG, METADATA_UPDATE, SEEK, PLAYBACK_RESTART, PROPERTY_CHANGE,
             CHAPTER_CHANGE )
+
+    def __repr__(self):
+        return ['NONE', 'SHUTDOWN', 'LOG_MESSAGE', 'GET_PROPERTY_REPLY', 'SET_PROPERTY_REPLY', 'COMMAND_REPLY',
+                'START_FILE', 'END_FILE', 'FILE_LOADED', 'TRACKS_CHANGED', 'TRACK_SWITCHED', 'IDLE', 'PAUSE', 'UNPAUSE',
+                'TICK', 'SCRIPT_INPUT_DISPATCH', 'CLIENT_MESSAGE', 'VIDEO_RECONFIG', 'AUDIO_RECONFIG',
+                'METADATA_UPDATE', 'SEEK', 'PLAYBACK_RESTART', 'PROPERTY_CHANGE', 'CHAPTER_CHANGE'][self.value]
 
 
 class MpvNodeList(Structure):
@@ -349,14 +363,22 @@ def _event_loop(event_handle, playback_cond, event_callbacks, message_handlers, 
                 with playback_cond:
                     playback_cond.notify_all()
             if eid == MpvEventID.PROPERTY_CHANGE:
-                pc, handlerid  = devent['event'], devent['reply_userdata']&0Xffffffffffffffff
-                if handlerid in property_handlers:
-                    name = pc['name']
-                    if 'value' in pc:
-                        proptype, _access = ALL_PROPERTIES[name]
-                        property_handlers[handlerid](name, proptype(_ensure_encoding(pc['value'])))
+                pc = devent['event']
+                name = pc['name']
+
+                if 'value' in pc:
+                    proptype, _access = ALL_PROPERTIES[name]
+                    if proptype is bytes:
+                        args = (pc['value'],)
                     else:
-                        property_handlers[handlerid](name, pc['data'], pc['format'])
+                        args = (proptype(_ensure_encoding(pc['value'])),)
+                elif pc['format'] == MpvFormat.NONE:
+                    args = (None,)
+                else:
+                    args = (pc['data'], pc['format'])
+
+                for handler in property_handlers[name]:
+                    handler(*args)
             if eid == MpvEventID.LOG_MESSAGE and log_handler is not None:
                 ev = devent['event']
                 log_handler(ev['level'], ev['prefix'], ev['text'])
@@ -371,10 +393,7 @@ def _event_loop(event_handle, playback_cond, event_callbacks, message_handlers, 
                 _mpv_detach_destroy(event_handle)
                 return
         except Exception as e:
-            #import traceback
-            #traceback.print_exc()
-            pass # It seems that when this thread runs into an exception, the MPV core is not able to terminate properly
-                 # anymore. FIXME
+            traceback.print_exc()
 
 class MPV(object):
     """ See man mpv(1) for the details of the implemented commands. """
@@ -395,7 +414,7 @@ class MPV(object):
         _mpv_initialize(self.handle)
 
         self._event_callbacks = []
-        self._property_handlers = {}
+        self._property_handlers = collections.defaultdict(lambda: [])
         self._message_handlers = {}
         self._key_binding_handlers = {}
         self._playback_cond = threading.Condition()
@@ -413,6 +432,16 @@ class MPV(object):
         """ Waits until playback of the current title is paused or done """
         with self._playback_cond:
             self._playback_cond.wait()
+
+    def wait_for_property(self, name, cond=lambda val: val, level_sensitive=True):
+        sema = threading.Semaphore(value=0)
+        def observer(val):
+            if cond(val):
+                sema.release()
+        self.observe_property(name, observer)
+        if not level_sensitive or not cond(getattr(self, name.replace('-', '_'))):
+            sema.acquire()
+        self.unobserve_property(name, observer)
 
     def __del__(self):
         if self.handle:
@@ -533,15 +562,14 @@ class MPV(object):
         self.command('script_message_to', target, *args)
 
     def observe_property(self, name, handler):
-        hashval = c_ulonglong(hash(handler))
-        self._property_handlers[hashval.value] = handler
-        _mpv_observe_property(self._event_handle, hashval, name.encode('utf-8'), MpvFormat.STRING)
+        self._property_handlers[name].append(handler)
+        _mpv_observe_property(self._event_handle, hash(name)&0xffffffffffffffff, name.encode('utf-8'), MpvFormat.STRING)
 
-    def unobserve_property(self, handler):
-        handlerid = hash(handler)
-        _mpv_unobserve_property(self._event_handle, handlerid)
-        if handlerid in self._property_handlers:
-            del self._property_handlers[handlerid]
+    def unobserve_property(self, name, handler):
+        handlers = self._property_handlers[name]
+        handlers.remove(handler)
+        if not handlers:
+            _mpv_unobserve_property(self._event_handle, hash(name)&0xffffffffffffffff)
 
     def register_message_handler(self, target, handler):
         self._message_handlers[target] = handler
@@ -565,7 +593,7 @@ class MPV(object):
         the first parameter, but YOU SHOULD NOT RELY ON THIS IN FOR SECURITY. If your input comes from config files,
         this is completely fine--but, if you are about to pass untrusted input into this parameter, better double-check
         whether this is secure in your case. """
-        if not re.match(r'(Shift+)?(Ctrl+)?(Alt+)?(Meta+)?\w+', keydef):
+        if not re.match(r'(Shift+)?(Ctrl+)?(Alt+)?(Meta+)?(.|\w+)', keydef):
             raise ValueError('Invalid keydef. Expected format: [Shift+][Ctrl+][Alt+][Meta+]<key>\n'
                     '<key> is either the literal character the key produces (ASCII or Unicode character), or a '
                     'symbolic name (as printed by --input-keylist')
@@ -609,18 +637,21 @@ class MPV(object):
 
         out = cast(create_string_buffer(sizeof(c_void_p)), c_void_p)
         outptr = byref(out)
-        cval = _mpv_get_property(self.handle, name.encode('utf-8'), fmt, outptr)
-        rv = MpvNode.node_cast_value(outptr, fmt, decode_str or proptype in (str, commalist))
+        try:
+            cval = _mpv_get_property(self.handle, name.encode('utf-8'), fmt, outptr)
+            rv = MpvNode.node_cast_value(outptr, fmt, decode_str or proptype in (str, commalist))
 
-        if proptype is commalist:
-            rv = proptype(rv)
+            if proptype is commalist:
+                rv = proptype(rv)
 
-        if proptype is str:
-            _mpv_free(out)
-        elif proptype is MpvFormat.NODE:
-            _mpv_free_node_contents(outptr)
+            if proptype is str:
+                _mpv_free(out)
+            elif proptype is MpvFormat.NODE:
+                _mpv_free_node_contents(outptr)
 
-        return rv
+            return rv
+        except PropertyUnavailableError as ex:
+            return None
 
     def _set_property(self, name, value, proptype=str):
         ename = name.encode('utf-8')

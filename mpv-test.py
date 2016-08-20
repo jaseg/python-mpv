@@ -139,12 +139,12 @@ class ObservePropertyTest(unittest.TestCase):
         self.assertEqual(m.loop, 'inf')
 
         time.sleep(0.02)
-        m.unobserve_property(handler)
+        m.unobserve_property('loop', handler)
 
         m.loop = 'no'
         m.loop = 'inf'
         m.terminate() # needed for synchronization of event thread
-        handler.assert_has_calls([mock.call('loop', 'no'), mock.call('loop', 'inf')])
+        handler.assert_has_calls([mock.call('no'), mock.call('inf')])
 
 
 class TestLifecycle(unittest.TestCase):
@@ -197,7 +197,7 @@ class TestLifecycle(unittest.TestCase):
         m.wait_for_playback()
         del m
         handler.assert_has_calls([
-            mock.call('info', 'cplayer', 'Playing: test.webm'),
+            mock.call('info', 'cplayer', 'Playing: ./test.webm'),
             mock.call('info', 'cplayer', '     Video --vid=1 (*) (vp8)'),
             mock.call('fatal', 'cplayer', 'No video or audio streams selected.')])
 
