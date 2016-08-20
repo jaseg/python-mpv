@@ -197,7 +197,7 @@ class TestLifecycle(unittest.TestCase):
         m.wait_for_playback()
         del m
         handler.assert_has_calls([
-            mock.call('info', 'cplayer', 'Playing: ./test.webm'),
+            mock.call('info', 'cplayer', 'Playing: test.webm'),
             mock.call('info', 'cplayer', '     Video --vid=1 (*) (vp8)'),
             mock.call('fatal', 'cplayer', 'No video or audio streams selected.')])
 

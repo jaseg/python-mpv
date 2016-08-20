@@ -495,8 +495,12 @@ class MPV(object):
     def playlist_prev(self, mode='weak'):
         self.command('playlist_prev', mode)
 
-    def loadfile(self, filename, mode='replace'):
-        self.command('loadfile', filename.encode(fs_enc), mode)
+    @staticmethod
+    def _encode_options(options):
+        return ','.join('{}={}'.format(str(key), str(val)) for key, val in options.items())
+
+    def loadfile(self, filename, mode='replace', **options):
+        self.command('loadfile', filename.encode(fs_enc), mode, MPV._encode_options(options))
 
     def loadlist(self, playlist, mode='replace'):
         self.command('loadlist', playlist.encode(fs_enc), mode)
