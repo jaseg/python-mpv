@@ -62,14 +62,12 @@ class TestProperties(unittest.TestCase):
         for name, (ptype, access, *_args) in sorted(mpv.ALL_PROPERTIES.items()):
             if 'r' in access:
                 name =  name.replace('-', '_')
-                with self.subTest(property_name=name):
-                    with self.swallow_mpv_errors([
-                        mpv.ErrorCode.PROPERTY_UNAVAILABLE,
-                        mpv.ErrorCode.PROPERTY_ERROR]):
-                        rv = getattr(self.m, name)
-                        if rv is not None and callable(ptype):
-                            # Technically, any property can return None (even if of type e.g. int)
-                            self.assertEqual(type(rv), type(ptype()))
+                with self.subTest(property_name=name), self.swallow_mpv_errors([
+                    mpv.ErrorCode.PROPERTY_UNAVAILABLE, mpv.ErrorCode.PROPERTY_ERROR]):
+                    rv = getattr(self.m, name)
+                    if rv is not None and callable(ptype):
+                        # Technically, any property can return None (even if of type e.g. int)
+                        self.assertEqual(type(rv), type(ptype()))
 
     def test_write(self):
         self.m.loop = 'inf'
@@ -79,32 +77,31 @@ class TestProperties(unittest.TestCase):
         for name, (ptype, access, *_args) in sorted(mpv.ALL_PROPERTIES.items()):
             if 'w' in access:
                 name =  name.replace('-', '_')
-                with self.subTest(property_name=name):
-                    with self.swallow_mpv_errors([
+                with self.subTest(property_name=name), self.swallow_mpv_errors([
                         mpv.ErrorCode.PROPERTY_UNAVAILABLE,
                         mpv.ErrorCode.PROPERTY_ERROR,
                         mpv.ErrorCode.PROPERTY_FORMAT]): # This is due to a bug with option-mapped properties in mpv 0.18.1
-                        if ptype == int:
-                            setattr(self.m, name, 0)
-                            setattr(self.m, name, 1)
-                            setattr(self.m, name, -1)
-                        elif ptype == float:
-                            setattr(self.m, name, 0.0)
-                            setattr(self.m, name, 1)
-                            setattr(self.m, name, 1.0)
-                            setattr(self.m, name, -1.0)
-                            setattr(self.m, name, math.nan)
-                        elif ptype == str:
-                            setattr(self.m, name, 'foo')
-                            setattr(self.m, name, '')
-                            setattr(self.m, name, 'bazbazbaz'*1000)
-                        elif ptype == bytes:
-                            setattr(self.m, name, b'foo')
-                            setattr(self.m, name, b'')
-                            setattr(self.m, name, b'bazbazbaz'*1000)
-                        elif ptype == bool:
-                            setattr(self.m, name, True)
-                            setattr(self.m, name, False)
+                    if ptype == int:
+                        setattr(self.m, name, 0)
+                        setattr(self.m, name, 1)
+                        setattr(self.m, name, -1)
+                    elif ptype == float:
+                        setattr(self.m, name, 0.0)
+                        setattr(self.m, name, 1)
+                        setattr(self.m, name, 1.0)
+                        setattr(self.m, name, -1.0)
+                        setattr(self.m, name, math.nan)
+                    elif ptype == str:
+                        setattr(self.m, name, 'foo')
+                        setattr(self.m, name, '')
+                        setattr(self.m, name, 'bazbazbaz'*1000)
+                    elif ptype == bytes:
+                        setattr(self.m, name, b'foo')
+                        setattr(self.m, name, b'')
+                        setattr(self.m, name, b'bazbazbaz'*1000)
+                    elif ptype == bool:
+                        setattr(self.m, name, True)
+                        setattr(self.m, name, False)
 
     def test_option_read(self):
         self.m.loop = 'inf'
@@ -112,12 +109,9 @@ class TestProperties(unittest.TestCase):
         while self.m.core_idle:
             time.sleep(0.05)
         for name in sorted(self.m):
-            with self.subTest(option_name=name):
-                with self.swallow_mpv_errors([
-                    mpv.ErrorCode.PROPERTY_UNAVAILABLE,
-                    mpv.ErrorCode.PROPERTY_NOT_FOUND,
-                    mpv.ErrorCode.PROPERTY_ERROR]):
-                    self.m[name]
+            with self.subTest(option_name=name), self.swallow_mpv_errors([
+                mpv.ErrorCode.PROPERTY_UNAVAILABLE, mpv.ErrorCode.PROPERTY_NOT_FOUND, mpv.ErrorCode.PROPERTY_ERROR]):
+                self.m[name]
 
 
     def tearDown(self):
