@@ -33,7 +33,7 @@ def my_log(loglevel, component, message):
 player = mpv.MPV(log_handler=my_log, ytdl=True, input_default_bindings=True, input_vo_keyboard=True)
 
 # Property access, these can be changed at runtime
-player.observe_property('time-pos', lambda _property, pos: print('Now playing at {:.2f}s'.format(pos)))
+player.observe_property('time-pos', lambda pos: print('Now playing at {:.2f}s'.format(pos)))
 player.fullscreen = True
 player.loop = 'inf'
 # Option access, in general these require the core to reinitialize
