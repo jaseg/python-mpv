@@ -378,7 +378,7 @@ def _event_loop(event_handle, playback_cond, event_callbacks, message_handlers, 
                     args = (pc['data'], pc['format'])
 
                 for handler in property_handlers[name]:
-                    handler(*args)
+                    handler(None, *args)
             if eid == MpvEventID.LOG_MESSAGE and log_handler is not None:
                 ev = devent['event']
                 log_handler(ev['level'], ev['prefix'], ev['text'])
