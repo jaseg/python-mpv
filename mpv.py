@@ -359,6 +359,8 @@ def _event_loop(event_handle, playback_cond, event_callbacks, message_handlers, 
         try:
             devent = event.as_dict() # copy data from ctypes
             eid = devent['event_id']
+            for callback in event_callbacks:
+                callback(devent)
             if eid in (MpvEventID.SHUTDOWN, MpvEventID.END_FILE):
                 with playback_cond:
                     playback_cond.notify_all()
@@ -387,8 +389,6 @@ def _event_loop(event_handle, playback_cond, event_callbacks, message_handlers, 
                 target, *args = devent['event']['args']
                 if target in message_handlers:
                     message_handlers[target](*args)
-            for callback in event_callbacks:
-                callback(devent)
             if eid == MpvEventID.SHUTDOWN:
                 _mpv_detach_destroy(event_handle)
                 return
@@ -449,9 +449,15 @@ class MPV(object):
 
     def terminate(self):
         self.handle, handle = None, self.handle
-        _mpv_terminate_destroy(handle)
-        if self._event_thread:
-            self._event_thread.join()
+        if threading.current_thread() is self._event_thread:
+            # Handle special case to allow event handle to be detached.
+            # This is necessary since otherwise the event thread would deadlock itself.
+            grim_reaper = threading.Thread(target=lambda: _mpv_terminate_destroy(handle))
+            grim_reaper.start()
+        else:
+            _mpv_terminate_destroy(handle)
+            if self._event_thread:
+                self._event_thread.join()
 
     def set_loglevel(self, level):
         _mpv_request_log_messages(self._event_handle, level.encode('utf-8'))
