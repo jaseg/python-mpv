@@ -397,7 +397,7 @@ def _event_loop(event_handle, playback_cond, event_callbacks, message_handlers, 
 
 class MPV(object):
     """ See man mpv(1) for the details of the implemented commands. """
-    def __init__(self, *extra_mpv_flags, log_handler=None, **extra_mpv_opts):
+    def __init__(self, *extra_mpv_flags, log_handler=None, start_event_thread=True, **extra_mpv_opts):
         """ Create an MPV instance.
 
         Extra arguments and extra keyword arguments will be passed to mpv as options. """
@@ -419,11 +419,14 @@ class MPV(object):
         self._key_binding_handlers = {}
         self._playback_cond = threading.Condition()
         self._event_handle = _mpv_create_client(self.handle, b'py_event_handler')
-        loop = partial(_event_loop, self._event_handle, self._playback_cond, self._event_callbacks,
+        self._loop = partial(_event_loop, self._event_handle, self._playback_cond, self._event_callbacks,
                 self._message_handlers, self._property_handlers, log_handler)
-        self._event_thread = threading.Thread(target=loop, name='MPVEventHandlerThread')
-        self._event_thread.setDaemon(True)
-        self._event_thread.start()
+        if start_event_thread:
+            self._event_thread = threading.Thread(target=self._loop, name='MPVEventHandlerThread')
+            self._event_thread.setDaemon(True)
+            self._event_thread.start()
+        else:
+            self._event_thread = None
 
         if log_handler is not None:
             self.set_loglevel('terminal-default')

@@ -90,7 +90,7 @@ class TestProperties(unittest.TestCase):
                         setattr(self.m, name, 1)
                         setattr(self.m, name, 1.0)
                         setattr(self.m, name, -1.0)
-                        setattr(self.m, name, math.nan)
+                        setattr(self.m, name, float('nan'))
                     elif ptype == str:
                         setattr(self.m, name, 'foo')
                         setattr(self.m, name, '')

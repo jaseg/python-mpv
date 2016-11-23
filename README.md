@@ -21,6 +21,14 @@ player = mpv.MPV(ytdl=True)
 player.play('https://youtu.be/DOmdB7D-pUU')
 ```
 
+Threading
+---------
+The ```mpv``` module starts one thread for event handling, since MPV sends events that must be processed quickly. The event queue has a fixed maxmimum size and some operations can cause a large number of events to be sent.
+
+If you want to handle threading yourself, you can pass ```start_event_thread=False``` to the ```MPV``` constructor and manually call the ```MPV``` object's ```_loop``` function. There is also an out-of-date branch on the repo that you can cherry-pick that brings in asyncio.
+
+All API functions are thread-safe. If one is not, please file an issue on github.
+
 Advanced Usage
 ==============
 ```python
