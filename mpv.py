@@ -13,7 +13,7 @@ import traceback
 # vim: ts=4 sw=4 et
 
 if os.name == 'nt':
-    backend = CDLL(ctypes.util.find_library('mpv-1.dll'))
+    backend = CDLL('mpv-1.dll')
     fs_enc = 'utf-8'
 else:
     import locale
@@ -22,7 +22,13 @@ else:
     # still better than segfaulting, we are setting LC_NUMERIC to "C".
     locale.setlocale(locale.LC_NUMERIC, 'C')
 
-    backend = CDLL(ctypes.util.find_library('mpv'))
+    sofile = ctypes.util.find_library('mpv')
+    if sofile is None:
+        raise OSError("Cannot find libmpv in the usual places. Depending on your distro, you may try installing an "
+                "mpv-devel or mpv-libs package. If you have libmpv around but this script can't find it, maybe consult "
+                "the documentation for ctypes.util.find_library which this script uses to look up the library "
+                "filename.")
+    backend = CDLL(sofile)
     fs_enc = sys.getfilesystemencoding()
 
 
