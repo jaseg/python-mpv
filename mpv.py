@@ -418,10 +418,8 @@ class MPV(object):
                 _mpv_set_option_string(self.handle, flag.encode('utf-8'), b'')
             for k,v in extra_mpv_opts.items():
                 _mpv_set_option_string(self.handle, k.replace('_', '-').encode('utf-8'), istr(v).encode('utf-8'))
-        except AttributeError as e:
+        finally:
             _mpv_initialize(self.handle)
-            raise e
-        _mpv_initialize(self.handle)
 
         self._event_callbacks = []
         self._property_handlers = collections.defaultdict(lambda: [])
