@@ -413,10 +413,14 @@ class MPV(object):
 
         _mpv_set_option_string(self.handle, b'audio-display', b'no')
         istr = lambda o: ('yes' if o else 'no') if type(o) is bool else str(o)
-        for flag in extra_mpv_flags:
-            _mpv_set_option_string(self.handle, flag.encode('utf-8'), b'')
-        for k,v in extra_mpv_opts.items():
-            _mpv_set_option_string(self.handle, k.replace('_', '-').encode('utf-8'), istr(v).encode('utf-8'))
+        try:
+            for flag in extra_mpv_flags:
+                _mpv_set_option_string(self.handle, flag.encode('utf-8'), b'')
+            for k,v in extra_mpv_opts.items():
+                _mpv_set_option_string(self.handle, k.replace('_', '-').encode('utf-8'), istr(v).encode('utf-8'))
+        except AttributeError as e:
+            _mpv_initialize(self.handle)
+            raise e
         _mpv_initialize(self.handle)
 
         self._event_callbacks = []
