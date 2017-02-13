@@ -512,6 +512,10 @@ class MPV(object):
     def playlist_prev(self, mode='weak'):
         self.command('playlist_prev', mode)
 
+    @property
+    def playlist_filenames(self):
+        return [element['filename'] for element in self.playlist]
+
     @staticmethod
     def _encode_options(options):
         return ','.join('{}={}'.format(str(key), str(val)) for key, val in options.items())
