@@ -520,7 +520,8 @@ class MPV(object):
 
     @property
     def playlist_position(self):
-        return self._get_property('playlist-pos', proptype=int)
+        val = self._get_property('playlist-pos')
+        return int(val) if val else None
 
     @property
     def playlist_length(self):
@@ -532,6 +533,13 @@ class MPV(object):
             raise ValueError("Trying to access out of bounds index %d in mpv playlist" % new)
         else:
             self._set_property("playlist-pos", new, proptype=int)
+
+    @property
+    def filenames():
+        res = []
+        for i in range(self.playlist_length):
+            self._get_property("playlist/{}/filename".format(i), proptype=str)
+        return res
 
     @staticmethod
     def _encode_options(options):
