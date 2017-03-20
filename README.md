@@ -25,7 +25,7 @@ Threading
 ---------
 The ```mpv``` module starts one thread for event handling, since MPV sends events that must be processed quickly. The event queue has a fixed maxmimum size and some operations can cause a large number of events to be sent.
 
-If you want to handle threading yourself, you can pass ```start_event_thread=False``` to the ```MPV``` constructor and manually call the ```MPV``` object's ```_loop``` function. There is also an out-of-date branch on the repo that you can cherry-pick that brings in asyncio.
+If you want to handle threading yourself, you can pass ```start_event_thread=False``` to the ```MPV``` constructor and manually call the ```MPV``` object's ```_loop``` function. If you have some strong need to not use threads and use some external event loop (such as asyncio) instead you can do that, too with some work. The API of the backend C ```libmpv``` has a function for producing a sort of event file descriptor for a handle. You can use that to produce a file descriptor that can be passed to an event loop to tell it to wake up the python-mpv event handler on every incoming event.
 
 All API functions are thread-safe. If one is not, please file an issue on github.
 
