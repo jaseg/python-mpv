@@ -479,11 +479,8 @@ class MPV(object):
                 for arg in args if arg is not None ] + [None]
         _mpv_command(self.handle, (c_char_p*len(args))(*args))
 
-    def play(self):
+    def resume(self):
         self._set_property("pause", False, proptype=bool)
-
-    def pause(self):
-        self._set_property("pause", True, proptype=bool)
 
     def seek(self, amount, reference="relative", precision="default-precise"):
         self.command('seek', amount, reference, precision)
