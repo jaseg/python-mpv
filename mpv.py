@@ -479,9 +479,6 @@ class MPV(object):
                 for arg in args if arg is not None ] + [None]
         _mpv_command(self.handle, (c_char_p*len(args))(*args))
 
-    def resume(self):
-        self._set_property("pause", False, proptype=bool)
-
     def seek(self, amount, reference="relative", precision="default-precise"):
         self.command('seek', amount, reference, precision)
 
@@ -516,27 +513,8 @@ class MPV(object):
         self.command('playlist_prev', mode)
 
     @property
-    def playlist_position(self):
-        val = self._get_property('playlist-pos')
-        return int(val) if val else None
-
-    @property
-    def playlist_length(self):
-        return self._get_property('playlist-count', proptype=int)
-
-    @playlist_position.setter
-    def playlist_position(self, new):
-        if new >= self.playlist_length or new < 0:
-            raise ValueError("Trying to access out of bounds index %d in mpv playlist" % new)
-        else:
-            self._set_property("playlist-pos", new, proptype=int)
-
-    @property
-    def filenames():
-        res = []
-        for i in range(self.playlist_length):
-            self._get_property("playlist/{}/filename".format(i), proptype=str)
-        return res
+    def playlist_filenames(self):
+        return [element['filename'] for element in self.playlist]
 
     @staticmethod
     def _encode_options(options):
