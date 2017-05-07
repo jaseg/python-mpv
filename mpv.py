@@ -530,10 +530,6 @@ class MPV(object):
     def playlist_prev(self, mode='weak'):
         self.command('playlist_prev', mode)
 
-    @property
-    def playlist_filenames(self):
-        return [element['filename'] for element in self.playlist]
-
     @staticmethod
     def _encode_options(options):
         return ','.join('{}={}'.format(str(key), str(val)) for key, val in options.items())
@@ -543,9 +539,6 @@ class MPV(object):
 
     def loadlist(self, playlist, mode='replace'):
         self.command('loadlist', playlist.encode(fs_enc), mode)
-
-    def playlist_append(self, filename, **options):
-        self.loadfile(self, filename, 'append', **options)
 
     def playlist_clear(self):
         self.command('playlist_clear')
@@ -670,6 +663,13 @@ class MPV(object):
     # Convenience functions
     def play(self, filename):
         self.loadfile(filename)
+
+    @property
+    def playlist_filenames(self):
+        return [element['filename'] for element in self.playlist]
+
+    def playlist_append(self, filename, **options):
+        self.loadfile(filename, 'append', **options)
 
     # Property accessors
     def _get_property(self, name, proptype=str, decode_str=False):
