@@ -544,6 +544,9 @@ class MPV(object):
     def loadlist(self, playlist, mode='replace'):
         self.command('loadlist', playlist.encode(fs_enc), mode)
 
+    def playlist_append(self, filename, **options):
+        self.loadfile(self, filename, 'append', **options)
+
     def playlist_clear(self):
         self.command('playlist_clear')
 
