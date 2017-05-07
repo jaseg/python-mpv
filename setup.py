@@ -9,5 +9,5 @@ setup(
     url = 'https://github.com/jaseg/python-mpv',
     author = 'jaseg',
     author_email = 'github@jaseg.net',
-    license = 'AGPLv2'
+    license = 'AGPLv3'
 )
