@@ -419,6 +419,10 @@ def _event_loop(event_handle, playback_cond, event_callbacks, message_handlers, 
         except Exception as e:
             traceback.print_exc()
 
+class OSDPropertyProxy:
+    def __init__(self, mpv):
+        self.mpv = mpv
+
 class MPV(object):
     """ See man mpv(1) for the details of the implemented commands. """
     def __init__(self, *extra_mpv_flags, log_handler=None, start_event_thread=True, **extra_mpv_opts):
@@ -439,6 +443,7 @@ class MPV(object):
         finally:
             _mpv_initialize(self.handle)
 
+        self.osd = OSDPropertyProxy(self)
         self._event_callbacks = []
         self._property_handlers = collections.defaultdict(lambda: [])
         self._message_handlers = {}
@@ -691,8 +696,8 @@ class MPV(object):
         self.loadfile(filename, 'append', **options)
 
     # Property accessors
-    def _get_property(self, name, proptype=str, decode_str=False):
-        fmt = {int:         MpvFormat.INT64,
+    def _get_property(self, name, proptype=str, decode_str=False, force_format=None):
+        fmt = force_format or {int:         MpvFormat.INT64,
                float:       MpvFormat.DOUBLE,
                bool:        MpvFormat.FLAG,
                str:         MpvFormat.STRING,
@@ -951,12 +956,14 @@ ALL_PROPERTIES = {
 
 def bindproperty(MPV, name, proptype, access, decode_str=False):
     getter = lambda self: self._get_property(name, proptype, decode_str)
+    osdgetter = lambda osdself: osdself.mpv._get_property(name, force_format=MpvFormat.OSD_STRING)
     setter = lambda self, value: self._set_property(name, value, proptype)
 
     def barf(*args):
         raise NotImplementedError('Access denied')
 
     setattr(MPV, name.replace('-', '_'), property(getter if 'r' in access else barf, setter if 'w' in access else barf))
+    setattr(OSDPropertyProxy, name.replace('-', '_'), property(osdgetter if 'r' in access else barf, barf))
 
 for name, (proptype, access, *args) in ALL_PROPERTIES.items():
     bindproperty(MPV, name, proptype, access, *args)
