@@ -35,7 +35,7 @@ class TestProperties(unittest.TestCase):
             self.assertTrue('r' in access or 'w' in access)
             self.assertRegex(name, '^[-0-9a-z]+$')
             # Types and MpvFormat values
-            self.assertIn(ptype, [bool, int, float, str, bytes, mpv.commalist] + list(range(10)))
+            self.assertIn(ptype, [bool, int, float, str, bytes, mpv._commalist] + list(range(10)))
 
     def test_completeness(self):
         ledir = dir(self.m)
@@ -132,6 +132,7 @@ class TestProperties(unittest.TestCase):
 class ObservePropertyTest(unittest.TestCase):
     def test_observe_property(self):
         handler = mock.Mock()
+        handler.observed_mpv_properties = []
 
         m = mpv.MPV()
         m.loop = 'inf'

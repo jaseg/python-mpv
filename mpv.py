@@ -428,7 +428,9 @@ class OSDPropertyProxy:
         self.mpv = mpv
 
 class MPV(object):
-    """ See man mpv(1) for the details of the implemented commands. """
+    """ See man mpv(1) for the details of the implemented commands. All mpv
+    properties can be accessed as ```my_mpv.some_property``` and all mpv
+    options can be accessed as ```my_mpv['some-option']```. """
     def __init__(self, *extra_mpv_flags, log_handler=None, start_event_thread=True, **extra_mpv_opts):
         """ Create an MPV instance.
 
@@ -472,6 +474,10 @@ class MPV(object):
             self._playback_cond.wait()
 
     def wait_for_property(self, name, cond=lambda val: val, level_sensitive=True):
+        """ Waits until ```cond``` evaluates to a truthy value on the named
+        property. This can be used to wait for properties such as
+        ```idle_active``` indicating the player is done with regular playback
+        and just idling around """
         sema = threading.Semaphore(value=0)
         def observer(val):
             if cond(val):
@@ -486,6 +492,9 @@ class MPV(object):
             self.terminate()
 
     def terminate(self):
+        """ Pröperly terminates this player instance. Preferably use this
+        instead of relying on python's garbage collector to cause this to be
+        called from the object's destructor. """
         self.handle, handle = None, self.handle
         if threading.current_thread() is self._event_thread:
             # Handle special case to allow event handle to be detached.
@@ -498,6 +507,13 @@ class MPV(object):
                 self._event_thread.join()
 
     def set_loglevel(self, level):
+        """ Set MPV's log level. This adjusts which output will be sent to this
+        object's log handlers. If you just want mpv's regular terminal output,
+        you don't need to adjust this but just need to pass a log handler to
+        the MPV constructur such as ```MPV(log_handler=print)```.
+
+        Valid log levels are "no", "fatal", "error", "warn", "info", "v"
+        "debug" and "trace". For details see your mpv's client.h header file """
         _mpv_request_log_messages(self._event_handle, level.encode('utf-8'))
 
     def command(self, name, *args):
@@ -507,15 +523,19 @@ class MPV(object):
         _mpv_command(self.handle, (c_char_p*len(args))(*args))
 
     def seek(self, amount, reference="relative", precision="default-precise"):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('seek', amount, reference, precision)
 
     def revert_seek(self):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('revert_seek');
 
     def frame_step(self):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('frame_step')
 
     def frame_back_step(self):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('frame_back_step')
 
     def _add_property(self, name, value=None):
@@ -528,15 +548,19 @@ class MPV(object):
         self.command('multiply_property', name, factor)
 
     def screenshot(self, includes='subtitles', mode='single'):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('screenshot', includes, mode)
 
     def screenshot_to_file(self, filename, includes='subtitles'):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('screenshot_to_file', filename.encode(fs_enc), includes)
 
     def playlist_next(self, mode='weak'):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('playlist_next', mode)
 
     def playlist_prev(self, mode='weak'):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('playlist_prev', mode)
 
     @staticmethod
@@ -544,102 +568,230 @@ class MPV(object):
         return ','.join('{}={}'.format(str(key), str(val)) for key, val in options.items())
 
     def loadfile(self, filename, mode='replace', **options):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('loadfile', filename.encode(fs_enc), mode, MPV._encode_options(options))
 
     def loadlist(self, playlist, mode='replace'):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('loadlist', playlist.encode(fs_enc), mode)
 
     def playlist_clear(self):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('playlist_clear')
 
     def playlist_remove(self, index='current'):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('playlist_remove', index)
 
     def playlist_move(self, index1, index2):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('playlist_move', index1, index2)
 
     def run(self, command, *args):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('run', command, *args)
 
     def quit(self, code=None):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('quit', code)
 
     def quit_watch_later(self, code=None):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('quit_watch_later', code)
 
     def sub_add(self, filename):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('sub_add', filename.encode(fs_enc))
 
     def sub_remove(self, sub_id=None):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('sub_remove', sub_id)
 
     def sub_reload(self, sub_id=None):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('sub_reload', sub_id)
 
     def sub_step(self, skip):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('sub_step', skip)
 
     def sub_seek(self, skip):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('sub_seek', skip)
 
     def toggle_osd(self):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('osd')
 
     def show_text(self, string, duration='-', level=None):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('show_text', string, duration, level)
 
     def show_progress(self):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('show_progress')
 
     def discnav(self, command):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('discnav', command)
 
     def write_watch_later_config(self):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('write_watch_later_config')
 
     def overlay_add(self, overlay_id, x, y, file_or_fd, offset, fmt, w, h, stride):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('overlay_add', overlay_id, x, y, file_or_fd, offset, fmt, w, h, stride)
 
     def overlay_remove(self, overlay_id):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('overlay_remove', overlay_id)
 
     def script_message(self, *args):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('script_message', *args)
 
     def script_message_to(self, target, *args):
+        """ Mapped mpv seek command, see man mpv(1). """
         self.command('script_message_to', target, *args)
 
-    def observe_property(self, name, handler):
+    def observe_property(self, name, handler=None):
+        """ Register an observer on the named property. An observer is a
+        function that is called with the new property value every time the
+        property's value is changed. The basic function signature is
+        ```fun(new_value)``` with new_value being the decoded property value as
+        a python object. This function can be used as a function decorator if
+        no handler is given.
+
+        To uunregister the observer, call either of ```mpv.unobserve_property(name, handler)```,
+        ```mpv.unobserve_all_properties(handler)``` or the handler's ```unregister_mpv_properties``` attribute:
+
+        ```
+        @player.observe_property('volume')
+        def my_handler(new_volume):
+            print("It's loud!", volume)
+
+        my_handler.unregister_mpv_properties()
+        ``` """
+        if handler is None:
+            def wrapper(fun):
+                self._observe_property_internal(name, handler)
+                return fun
+            return wrapper
+        else:
+            self._observe_property_internal(name, handler)
+
+    def _observe_property_internal(self, name, handler):
+        handler.observed_mpv_properties = getattr(handler, 'observed_mpv_properties', []) + [name]
+        handler.unregister_mpv_properties = lambda: self.unobserve_property(None, handler)
         self._property_handlers[name].append(handler)
         _mpv_observe_property(self._event_handle, hash(name)&0xffffffffffffffff, name.encode('utf-8'), MpvFormat.STRING)
 
     def unobserve_property(self, name, handler):
+        """ Unregister a property observer. This requires both the observed property's name and the handler function
+        that was originally registered as one handler could be registered for several properties. To unregister a
+        handler from *all* observed properties see ```unobserve_all_properties```. """
         handlers = self._property_handlers[name]
         handlers.remove(handler)
         if not handlers:
             _mpv_unobserve_property(self._event_handle, hash(name)&0xffffffffffffffff)
 
-    def register_message_handler(self, target, handler):
+    def unobserve_all_properties(self, handler):
+        """ Unregister a property observer from *all* observed properties. """
+        for name in self._property_handlers:
+            self.unobserve_property(name, handler)
+
+    def register_message_handler(self, target, handler=None):
+        """ Register a mpv script message handler. This can be used to communicate with embedded lua scripts. Pass the
+        script message target name this handler should be listening to and the handler function.
+
+        WARNING: Only one handler can be registered at a time for any given target.
+
+        To unregister the message handler, call its unregister_mpv_messages function:
+
+        ```
+        player = mpv.MPV()
+        @player.message_handler('foo')
+        def my_handler(some, args):
+            print(args)
+
+        my_handler.unregister_mpv_messages()
+        ``` """
+        self._register_message_handler_internal(target, handler)
+
+    def _register_script_message_handler_internal(self, target, handler):
+        handler.mpv_message_targets = getattr(handler, 'mpv_script_message_targets', []) + [target]
+        handler.unregister_mpv_messages = lambda: self.unregister_message_handler(handler)
         self._message_handlers[target] = handler
 
-    def unregister_message_handler(self, target):
-        del self._message_handlers[target]
+    def unregister_message_handler(self, target_or_handler):
+        """ Unregister a mpv script message handler for the given script message target name.
+
+        You can also call the ```unregister_mpv_messages``` function attribute set on the handler function when it is
+        registered. """
+        if isinstance(target, str):
+            del self._message_handlers[target]
+        else:
+            for key, val in self._message_handlers.items():
+                if val == target_or_handler:
+                    del self._message_handlers[key]
 
     def message_handler(self, target):
-        """ Decorator to register a message handler """
+        """ Decorator to register a mpv script message handler.
+
+        WARNING: Only one handler can be registered at a time for any given target.
+
+        To unregister the message handler, call its unregister_mpv_messages function:
+
+        ```
+        player = mpv.MPV()
+        @player.message_handler('foo')
+        def my_handler(some, args):
+            print(args)
+
+        my_handler.unregister_mpv_messages()
+        """
         def register(handler):
-            self._message_handlers[target] = handler
-            handler.unregister_message_handler = partial(self.unregister_message_handler, target)
+            self._register_message_handler_internal(target, handler)
             return handler
         return register
 
     def register_event_callback(self, callback):
+        """ Register a blanket event callback receiving all event types.
+
+        To unregister the event callback, call its unregister_mpv_events function:
+
+        ```
+        player = mpv.MPV()
+        @player.event_callback('shutdown')
+        def my_handler(event):
+            print('It ded.')
+
+        my_handler.unregister_mpv_events()
+        """
+        callback.unregister_mpv_events = partial(self.unregister_event_callback, callback)
         self._event_callbacks.append(callback)
 
     def unregister_event_callback(self, callback):
+        """ Unregiser an event callback. """
         self._event_callbacks.remove(callback)
 
     def event_callback(self, *event_types):
+        """ Function decorator to register a blanket event callback for the given event types. Event types can be given
+        as str (e.g.  'start-file'), integer or MpvEventID object.
+
+        WARNING: Due to the way this is filtering events, this decorator cannot be chained with itself.
+
+        To unregister the event callback, call its unregister_mpv_events function:
+
+        ```
+        player = mpv.MPV()
+        @player.event_callback('shutdown')
+        def my_handler(event):
+            print('It ded.')
+
+        my_handler.unregister_mpv_events()
+        """
         def register(callback):
             types = [MpvEventID.from_str(t) if isinstance(t, str) else t for t in event_types] or MpvEventID.ANY
             @wraps(callback)
@@ -647,7 +799,7 @@ class MPV(object):
                 if event['event_id'] in types:
                     callback(event, *args, **kwargs)
             self._event_callbacks.append(wrapper)
-            wrapper.unregister_event_callback = partial(self.unregister_event_callback, wrapper)
+            wrapper.unregister_mpv_events = partial(self.unregister_event_callback, wrapper)
             return wrapper
         return register
 
@@ -655,18 +807,55 @@ class MPV(object):
     def _binding_name(callback_or_cmd):
         return 'py_kb_{:016x}'.format(hash(callback_or_cmd)&0xffffffffffffffff)
 
-    def register_key_binding(self, keydef, callback_or_cmd, mode='force'):
-        """ BIG FAT WARNING: mpv's key binding mechanism is pretty powerful. This means, you essentially get arbitrary
+    def key_binding(self, keydef, mode='force'):
+        """ Function decorator to register a key binding.
+
+        The callback function signature is ```fun(key_state, key_name)``` where ```key_state``` is either ```'U'``` for
+        "key up" or ```'D'``` for "key down".
+
+        The keydef format is: ```[Shift+][Ctrl+][Alt+][Meta+]<key>``` where ```<key>``` is either the literal character
+        the key produces (ASCII or Unicode character), or a symbolic name (as printed by ```mpv --input-keylist```)
+
+        To unregister the callback function, you can call its ```unregister_mpv_key_bindings``` attribute:
+
+        ```
+        player = mpv.MPV()
+        @player.key_binding('Q')
+        def binding(state, name):
+            print('blep')
+
+        binding.unregister_mpv_key_bindings()
+        ```
+
+        WARNING: For a single keydef only a single callback/command can be registered at the same time. If you register
+        a binding multiple times older bindings will be overwritten and there is a possibility of references leaking. So
+        don't do that.
+
+        BIG FAT WARNING: mpv's key binding mechanism is pretty powerful. This means, you essentially get arbitrary
         code exectution through key bindings. This interface makes some limited effort to sanitize the keydef given in
         the first parameter, but YOU SHOULD NOT RELY ON THIS IN FOR SECURITY. If your input comes from config files,
         this is completely fine--but, if you are about to pass untrusted input into this parameter, better double-check
         whether this is secure in your case. """
+
+        def wrapper(fun):
+            self.register_key_binding(keydef, fun, mode)
+            return fun
+        return wrapper
+
+    def register_key_binding(self, keydef, callback_or_cmd, mode='force'):
+        """ Register a key binding. This takes an mpv keydef and either a string containing a mpv
+        command or a python callback function. See ```MPV.key_binding``` for details. """
         if not re.match(r'(Shift+)?(Ctrl+)?(Alt+)?(Meta+)?(.|\w+)', keydef):
             raise ValueError('Invalid keydef. Expected format: [Shift+][Ctrl+][Alt+][Meta+]<key>\n'
                     '<key> is either the literal character the key produces (ASCII or Unicode character), or a '
                     'symbolic name (as printed by --input-keylist')
         binding_name = MPV._binding_name(keydef)
         if callable(callback_or_cmd):
+            callback_or_cmd.mpv_key_bindings = getattr(handler, 'mpv_key_bindings', []) + [keydef]
+            def unregister_all():
+                for keydef in callback_or_cmd.mpv_key_bindings:
+                    self.unregister_key_binding(keydef)
+            callback_or_cmd.unregister_mpv_key_bindings = unregister_all
             self._key_binding_handlers[binding_name] = callback_or_cmd
             self.register_message_handler('key-binding', self._handle_key_binding_message)
             self.command('define-section',
@@ -681,23 +870,28 @@ class MPV(object):
         self._key_binding_handlers[binding_name](key_state, key_name)
 
     def unregister_key_binding(self, keydef):
+        """ Unregister a key binding by keydef """
         binding_name = MPV._binding_name(keydef)
         self.command('disable-section', binding_name)
         self.command('define-section', binding_name, '')
-        if callable(callback):
+        if binding_name in self._key_binding_handlers:
             del self._key_binding_handlers[binding_name]
             if not self._key_binding_handlers:
                 self.unregister_message_handler('key-binding')
 
     # Convenience functions
     def play(self, filename):
+        """ Play a path or URL (requires ```ytdl``` option to be set) """
         self.loadfile(filename)
 
     @property
     def playlist_filenames(self):
+        """ Return all playlist item file names/URLs as a list of strs """
         return [element['filename'] for element in self.playlist]
 
     def playlist_append(self, filename, **options):
+        """ Append a path or URL to the playlist. This does not start playing the file automatically. To do that, use
+        ```MPV.loadfile(filename, 'append-play')```. """
         self.loadfile(filename, 'append', **options)
 
     # Property accessors
@@ -707,16 +901,16 @@ class MPV(object):
                bool:        MpvFormat.FLAG,
                str:         MpvFormat.STRING,
                bytes:       MpvFormat.STRING,
-               commalist:   MpvFormat.STRING,
+               _commalist:   MpvFormat.STRING,
                MpvFormat.NODE: MpvFormat.NODE}[proptype]
 
         out = cast(create_string_buffer(sizeof(c_void_p)), c_void_p)
         outptr = byref(out)
         try:
             cval = _mpv_get_property(self.handle, name.encode('utf-8'), fmt, outptr)
-            rv = MpvNode.node_cast_value(outptr, fmt, decode_str or proptype in (str, commalist))
+            rv = MpvNode.node_cast_value(outptr, fmt, decode_str or proptype in (str, _commalist))
 
-            if proptype is commalist:
+            if proptype is _commalist:
                 rv = proptype(rv)
 
             if proptype is str:
@@ -746,20 +940,22 @@ class MPV(object):
         return self._get_property(prefix+name)
 
     def __setitem__(self, name, value, file_local=False):
-        """ Get an option value """
+        """ Set an option value """
         prefix = 'file-local-options/' if file_local else 'options/'
         return self._set_property(prefix+name, value)
 
     def __iter__(self):
+        """ Iterate over all option names """
         return iter(self.options)
 
     def option_info(self, name):
+        """ Get information on the given option """
         return self._get_property('option-info/'+name)
 
-def commalist(propval=''):
+def _commalist(propval=''):
     return str(propval).split(',')
 
-node = MpvFormat.NODE
+_node = MpvFormat.NODE
 
 ALL_PROPERTIES = {
         'osd-level':                    (int,    'rw'),
@@ -904,7 +1100,7 @@ ALL_PROPERTIES = {
         'ffmpeg-version':               (str,    'r'),
         'display-sync-active':          (bool,   'r'),
         'stream-open-filename':         (bytes,   'rw'), # Undocumented
-        'file-format':                  (commalist,'r'), # Be careful with this one.
+        'file-format':                  (_commalist,'r'), # Be careful with this one.
         'mistimed-frame-count':         (int,    'r'),
         'vsync-ratio':                  (float,  'r'),
 #        'vo-drop-frame-count':          (int,    'r'),
@@ -918,7 +1114,7 @@ ALL_PROPERTIES = {
         'demuxer-via-network':          (bool,   'r'),
 #        'idle':                         (bool,   'r'),
         'idle-active':                  (bool,   'r'), # dat name
-        'disc-title-list':              (commalist,'r'),
+        'disc-title-list':              (_commalist,'r'),
         'field-dominance':              (str,    'rw'),
         'taskbar-progress':             (bool,   'rw'),
         'on-all-workspaces':            (bool,   'rw'),
@@ -937,38 +1133,38 @@ ALL_PROPERTIES = {
         'dvb-channel':                  (str,    'w'),
         'dvb-channel-name':             (str,    'rw'),
         'window-minimized':             (bool,   'r'),
-        'display-names':                (commalist, 'r'),
+        'display-names':                (_commalist, 'r'),
         'display-fps':                  (float,  'r'), # access apparently misdocumented in the manpage
         'estimated-display-fps':        (float,  'r'),
         'vsync-jitter':                 (float,  'r'),
-        'profile-list':                 (node,   'r', False),
-        'video-params':                 (node,   'r', True),
-        'video-dec-params':             (node,   'r', True),
-        'video-out-params':             (node,   'r', True),
-        'track-list':                   (node,   'r', False),
-        'playlist':                     (node,   'r', False),
-        'chapter-list':                 (node,   'r', False),
-        'vo-performance':               (node,   'r', True),
-        'filtered-metadata':            (node,   'r', False),
-        'metadata':                     (node,   'r', False),
-        'chapter-metadata':             (node,   'r', False),
-        'vf-metadata':                  (node,   'r', False),
-        'af-metadata':                  (node,   'r', False),
-        'edition-list':                 (node,   'r', False),
-        'disc-titles':                  (node,   'r', False),
-        'audio-params':                 (node,   'r', True),
-        'audio-out-params':             (node,   'r', True),
-        'audio-device-list':            (node,   'r', True),
-        'video-frame-info':             (node,   'r', True),
-        'decoder-list':                 (node,   'r', True),
-        'encoder-list':                 (node,   'r', True),
-        'vf':                           (node,   'r', True),
-        'af':                           (node,   'r', True),
-        'options':                      (node,   'r', True),
-        'file-local-options':           (node,   'r', True),
-        'property-list':                (commalist,'r')}
+        'profile-list':                 (_node,  'r', False),
+        'video-params':                 (_node,  'r', True),
+        'video-dec-params':             (_node,  'r', True),
+        'video-out-params':             (_node,  'r', True),
+        'track-list':                   (_node,  'r', False),
+        'playlist':                     (_node,  'r', False),
+        'chapter-list':                 (_node,  'r', False),
+        'vo-performance':               (_node,  'r', True),
+        'filtered-metadata':            (_node,  'r', False),
+        'metadata':                     (_node,  'r', False),
+        'chapter-metadata':             (_node,  'r', False),
+        'vf-metadata':                  (_node,  'r', False),
+        'af-metadata':                  (_node,  'r', False),
+        'edition-list':                 (_node,  'r', False),
+        'disc-titles':                  (_node,  'r', False),
+        'audio-params':                 (_node,  'r', True),
+        'audio-out-params':             (_node,  'r', True),
+        'audio-device-list':            (_node,  'r', True),
+        'video-frame-info':             (_node,  'r', True),
+        'decoder-list':                 (_node,  'r', True),
+        'encoder-list':                 (_node,  'r', True),
+        'vf':                           (_node,  'r', True),
+        'af':                           (_node,  'r', True),
+        'options':                      (_node,  'r', True),
+        'file-local-options':           (_node,  'r', True),
+        'property-list':                (_commalist,'r')}
 
-def bindproperty(MPV, name, proptype, access, decode_str=False):
+def _bindproperty(MPV, name, proptype, access, decode_str=False):
     getter = lambda self: self._get_property(name, proptype, decode_str)
     osdgetter = lambda osdself: osdself.mpv._get_property(name, force_format=MpvFormat.OSD_STRING)
     setter = lambda self, value: self._set_property(name, value, proptype)
@@ -980,5 +1176,5 @@ def bindproperty(MPV, name, proptype, access, decode_str=False):
     setattr(OSDPropertyProxy, name.replace('-', '_'), property(osdgetter if 'r' in access else barf, barf))
 
 for name, (proptype, access, *args) in ALL_PROPERTIES.items():
-    bindproperty(MPV, name, proptype, access, *args)
+    _bindproperty(MPV, name, proptype, access, *args)
 
