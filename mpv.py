@@ -23,7 +23,7 @@ import threading
 import os
 import sys
 from warnings import warn
-from functools import partial
+from functools import partial, wraps
 import collections
 import re
 import traceback
@@ -616,11 +616,30 @@ class MPV(object):
     def unregister_message_handler(self, target):
         del self._message_handlers[target]
 
+    def message_handler(self, target):
+        """ Decorator to register a message handler """
+        def register(handler):
+            self._message_handlers[target] = handler
+            handler.unregister_message_handler = partial(self.unregister_message_handler, target)
+            return handler
+        return register
+
     def register_event_callback(self, callback):
         self._event_callbacks.append(callback)
 
     def unregister_event_callback(self, callback):
         self._event_callbacks.remove(callback)
+
+    def event_callback(self, *event_types):
+        def register(callback):
+            @wraps(callback)
+            def wrapper(event, *args, **kwargs):
+                if event['event_id'] in (event_types or MpvEventID.ANY):
+                    callback(event, *args, **kwargs)
+            self._event_callbacks.append(wrapper)
+            wrapper.unregister_event_callback = partial(self.unregister_event_callback, wrapper)
+            return wrapper
+        return register
 
     @staticmethod
     def _binding_name(callback_or_cmd):
