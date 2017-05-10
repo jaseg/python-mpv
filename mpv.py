@@ -228,17 +228,13 @@ class MpvEventProperty(Structure):
     _fields_ = [('name', c_char_p),
                 ('format', MpvFormat),
                 ('data', c_void_p)]
-    def as_dict(self):
-        if self.format.value == MpvFormat.STRING:
-            proptype, _access = ALL_PROPERTIES.get(self.name, (str, None))
-            return {'name': self.name.decode('utf-8'),
-                    'format': self.format,
-                    'data': self.data,
-                    'value': proptype(cast(self.data, POINTER(c_char_p)).contents.value.decode('utf-8'))}
-        else:
-            return {'name': self.name.decode('utf-8'),
-                    'format': self.format,
-                    'data': self.data}
+    def as_dict(self, decode_str=False):
+        proptype, _access = ALL_PROPERTIES.get(self.name, (str, None))
+        value = MpvNode.node_cast_value(self.data, self.format.value, decode_str or proptype in (str, _commalist))
+        return {'name': self.name.decode('utf-8'),
+                'format': self.format,
+                'data': self.data,
+                'value': value}
 
 class MpvEventLogMessage(Structure):
     _fields_ = [('prefix', c_char_p),
@@ -394,21 +390,10 @@ def _event_loop(event_handle, playback_cond, event_callbacks, message_handlers, 
                     playback_cond.notify_all()
             if eid == MpvEventID.PROPERTY_CHANGE:
                 pc = devent['event']
-                name = pc['name']
-
-                if 'value' in pc:
-                    proptype, _access = ALL_PROPERTIES[name]
-                    if proptype is bytes:
-                        args = (pc['value'],)
-                    else:
-                        args = (proptype(_ensure_encoding(pc['value'])),)
-                elif pc['format'] == MpvFormat.NONE:
-                    args = (None,)
-                else:
-                    args = (pc['data'], pc['format'])
+                name, value = pc['name'], pc['value']
 
                 for handler in property_handlers[name]:
-                    handler(*args)
+                    handler(name, value)
             if eid == MpvEventID.LOG_MESSAGE and log_handler is not None:
                 ev = devent['event']
                 log_handler(ev['level'], ev['prefix'], ev['text'])
@@ -479,7 +464,7 @@ class MPV(object):
         ```idle_active``` indicating the player is done with regular playback
         and just idling around """
         sema = threading.Semaphore(value=0)
-        def observer(val):
+        def observer(name, val):
             if cond(val):
                 sema.release()
         self.observe_property(name, observer)
@@ -655,37 +640,33 @@ class MPV(object):
         """ Mapped mpv seek command, see man mpv(1). """
         self.command('script_message_to', target, *args)
 
-    def observe_property(self, name, handler=None):
-        """ Register an observer on the named property. An observer is a
-        function that is called with the new property value every time the
-        property's value is changed. The basic function signature is
-        ```fun(new_value)``` with new_value being the decoded property value as
-        a python object. This function can be used as a function decorator if
-        no handler is given.
+    def observe_property(self, name, handler):
+        """ Register an observer on the named property. An observer is a function that is called with the new property
+        value every time the property's value is changed. The basic function signature is ```fun(property_name,
+        new_value)``` with new_value being the decoded property value as a python object. This function can be used as a
+        function decorator if no handler is given.
 
         To uunregister the observer, call either of ```mpv.unobserve_property(name, handler)```,
         ```mpv.unobserve_all_properties(handler)``` or the handler's ```unregister_mpv_properties``` attribute:
 
         ```
         @player.observe_property('volume')
-        def my_handler(new_volume):
+        def my_handler(new_volume, *):
             print("It's loud!", volume)
 
         my_handler.unregister_mpv_properties()
         ``` """
-        if handler is None:
-            def wrapper(fun):
-                self._observe_property_internal(name, handler)
-                return fun
-            return wrapper
-        else:
-            self._observe_property_internal(name, handler)
-
-    def _observe_property_internal(self, name, handler):
         handler.observed_mpv_properties = getattr(handler, 'observed_mpv_properties', []) + [name]
         handler.unregister_mpv_properties = lambda: self.unobserve_property(None, handler)
         self._property_handlers[name].append(handler)
-        _mpv_observe_property(self._event_handle, hash(name)&0xffffffffffffffff, name.encode('utf-8'), MpvFormat.STRING)
+        _mpv_observe_property(self._event_handle, hash(name)&0xffffffffffffffff, name.encode('utf-8'), MpvFormat.NODE)
+
+    def property_observer(self, name):
+        """ Function decorator to register a property observer. See ```MPV.observe_property``` for details. """
+        def wrapper(fun):
+            self.observe_property(name, fun)
+            return fun
+        return wrapper
 
     def unobserve_property(self, name, handler):
         """ Unregister a property observer. This requires both the observed property's name and the handler function

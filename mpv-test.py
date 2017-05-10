@@ -151,7 +151,7 @@ class ObservePropertyTest(unittest.TestCase):
         m.loop = 'no'
         m.loop = 'inf'
         m.terminate() # needed for synchronization of event thread
-        handler.assert_has_calls([mock.call('no'), mock.call('inf')])
+        handler.assert_has_calls([mock.call('loop', False), mock.call('loop', 'inf')])
 
 
 class TestLifecycle(unittest.TestCase):
