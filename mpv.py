@@ -163,6 +163,10 @@ class MpvEventID(c_int):
                 'TICK', 'SCRIPT_INPUT_DISPATCH', 'CLIENT_MESSAGE', 'VIDEO_RECONFIG', 'AUDIO_RECONFIG',
                 'METADATA_UPDATE', 'SEEK', 'PLAYBACK_RESTART', 'PROPERTY_CHANGE', 'CHAPTER_CHANGE'][self.value]
 
+    @classmethod
+    def from_str(kls, s):
+        return getattr(kls, s.upper().replace('-', '_'))
+
 
 class MpvNodeList(Structure):
     def array_value(self, decode_str=False):
@@ -637,9 +641,10 @@ class MPV(object):
 
     def event_callback(self, *event_types):
         def register(callback):
+            types = [MpvEventID.from_str(t) if isinstance(t, str) else t for t in event_types] or MpvEventID.ANY
             @wraps(callback)
             def wrapper(event, *args, **kwargs):
-                if event['event_id'] in (event_types or MpvEventID.ANY):
+                if event['event_id'] in types:
                     callback(event, *args, **kwargs)
             self._event_callbacks.append(wrapper)
             wrapper.unregister_event_callback = partial(self.unregister_event_callback, wrapper)
