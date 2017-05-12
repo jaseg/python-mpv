@@ -124,6 +124,8 @@ class MpvFormat(c_int):
         return ['NONE', 'STRING', 'OSD_STRING', 'FLAG', 'INT64', 'DOUBLE', 'NODE', 'NODE_ARRAY', 'NODE_MAP',
                 'BYTE_ARRAY'][self.value]
 
+    def __hash__(self):
+        return self.value
 
 
 class MpvEventID(c_int):
@@ -390,9 +392,9 @@ def _event_loop(event_handle, playback_cond, event_callbacks, message_handlers, 
                     playback_cond.notify_all()
             if eid == MpvEventID.PROPERTY_CHANGE:
                 pc = devent['event']
-                name, value = pc['name'], pc['value']
+                name, value, fmt = pc['name'], pc['value'], pc['format']
 
-                for handler in property_handlers[name]:
+                for handler in property_handlers[name][fmt]:
                     handler(name, value)
             if eid == MpvEventID.LOG_MESSAGE and log_handler is not None:
                 ev = devent['event']
@@ -436,7 +438,7 @@ class MPV(object):
 
         self.osd = OSDPropertyProxy(self)
         self._event_callbacks = []
-        self._property_handlers = collections.defaultdict(lambda: [])
+        self._property_handlers = collections.defaultdict(lambda: collections.defaultdict(lambda: []))
         self._message_handlers = {}
         self._key_binding_handlers = {}
         self._playback_cond = threading.Condition()
@@ -640,11 +642,14 @@ class MPV(object):
         """ Mapped mpv seek command, see man mpv(1). """
         self.command('script_message_to', target, *args)
 
-    def observe_property(self, name, handler):
+    def observe_property(self, name, handler, *, force_fmt=None):
         """ Register an observer on the named property. An observer is a function that is called with the new property
         value every time the property's value is changed. The basic function signature is ```fun(property_name,
         new_value)``` with new_value being the decoded property value as a python object. This function can be used as a
         function decorator if no handler is given.
+
+        By default, you'll get whatever return type you'd get if you asked the regular property access API. To override
+        this behavior, you can specify a forced return type from ```MpvFormat``` in force_fmt
 
         To uunregister the observer, call either of ```mpv.unobserve_property(name, handler)```,
         ```mpv.unobserve_all_properties(handler)``` or the handler's ```unregister_mpv_properties``` attribute:
@@ -656,15 +661,16 @@ class MPV(object):
 
         my_handler.unregister_mpv_properties()
         ``` """
+        fmt = force_fmt or MpvFormat.NODE
         handler.observed_mpv_properties = getattr(handler, 'observed_mpv_properties', []) + [name]
         handler.unregister_mpv_properties = lambda: self.unobserve_property(None, handler)
-        self._property_handlers[name].append(handler)
-        _mpv_observe_property(self._event_handle, hash(name)&0xffffffffffffffff, name.encode('utf-8'), MpvFormat.NODE)
+        self._property_handlers[name][fmt].append(handler)
+        _mpv_observe_property(self._event_handle, hash(name)&0xffffffffffffffff, name.encode('utf-8'), fmt)
 
-    def property_observer(self, name):
+    def property_observer(self, name, *, force_fmt=None):
         """ Function decorator to register a property observer. See ```MPV.observe_property``` for details. """
         def wrapper(fun):
-            self.observe_property(name, fun)
+            self.observe_property(name, fun, force_fmt=force_fmt)
             return fun
         return wrapper
 
@@ -672,9 +678,12 @@ class MPV(object):
         """ Unregister a property observer. This requires both the observed property's name and the handler function
         that was originally registered as one handler could be registered for several properties. To unregister a
         handler from *all* observed properties see ```unobserve_all_properties```. """
-        handlers = self._property_handlers[name]
-        handlers.remove(handler)
-        if not handlers:
+        fmts = self._property_handlers[name]
+        for fmt, handlers in fmts.items():
+            handlers.remove(handler)
+            if not handlers:
+                del fmts[fmt]
+        if not fmts:
             _mpv_unobserve_property(self._event_handle, hash(name)&0xffffffffffffffff)
 
     def unobserve_all_properties(self, handler):
