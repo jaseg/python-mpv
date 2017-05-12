@@ -15,6 +15,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
 
 from ctypes import *
 import ctypes.util
@@ -639,37 +640,26 @@ class MPV(object):
         """ Mapped mpv seek command, see man mpv(1). """
         self.command('script_message_to', target, *args)
 
-    def observe_property(self, name, handler, proptype=MpvFormat.NODE):
-        """Register an observer on the named property. An observer is a
-        function that is called with the new property value every time
-        the property's value is changed. The basic function signature is
-        fun(property_name, new_value) with new_value being the decoded
-        property value as a python object. This function can be used as
-        a function decorator if no handler is given.
+    def observe_property(self, name, handler):
+        """ Register an observer on the named property. An observer is a function that is called with the new property
+        value every time the property's value is changed. The basic function signature is ```fun(property_name,
+        new_value)``` with new_value being the decoded property value as a python object. This function can be used as a
+        function decorator if no handler is given.
 
-        To unregister the observer, call either of
-        mpv.unobserve_property(name, handler),
-        mpv.unobserve_all_properties(handler) or the handler's
-        unregister_mpv_properties attribute:
+        To uunregister the observer, call either of ```mpv.unobserve_property(name, handler)```,
+        ```mpv.unobserve_all_properties(handler)``` or the handler's ```unregister_mpv_properties``` attribute:
 
+        ```
         @player.observe_property('volume')
         def my_handler(new_volume, *):
             print("It's loud!", volume)
 
         my_handler.unregister_mpv_properties()
-        """
-        fmt = {int: MpvFormat.INT64, float: MpvFormat.DOUBLE,
-               bool: MpvFormat.FLAG, str: MpvFormat.STRING,
-               bytes: MpvFormat.STRING, _commalist: MpvFormat.STRING,
-               MpvFormat.NODE: MpvFormat.NODE}[proptype]
-        handler.observed_mpv_properties = getattr(
-            handler, 'observed_mpv_properties', []) + [name]
-        handler.unregister_mpv_properties = lambda: self.unobserve_property(
-            None, handler)
+        ``` """
+        handler.observed_mpv_properties = getattr(handler, 'observed_mpv_properties', []) + [name]
+        handler.unregister_mpv_properties = lambda: self.unobserve_property(None, handler)
         self._property_handlers[name].append(handler)
-        _mpv_observe_property(
-            self._event_handle, hash(name) & 0xffffffffffffffff,
-            name.encode('utf-8'), fmt)
+        _mpv_observe_property(self._event_handle, hash(name)&0xffffffffffffffff, name.encode('utf-8'), MpvFormat.NODE)
 
     def property_observer(self, name):
         """ Function decorator to register a property observer. See ```MPV.observe_property``` for details. """
