@@ -841,7 +841,7 @@ class MPV(object):
                     'symbolic name (as printed by --input-keylist')
         binding_name = MPV._binding_name(keydef)
         if callable(callback_or_cmd):
-            callback_or_cmd.mpv_key_bindings = getattr(handler, 'mpv_key_bindings', []) + [keydef]
+            callback_or_cmd.mpv_key_bindings = getattr(callback_or_cmd, 'mpv_key_bindings', []) + [keydef]
             def unregister_all():
                 for keydef in callback_or_cmd.mpv_key_bindings:
                     self.unregister_key_binding(keydef)
