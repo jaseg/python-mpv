@@ -206,5 +206,32 @@ class TestLifecycle(unittest.TestCase):
         handler.assert_any_call('info', 'cplayer', 'Playing: ./test.webm')
 
 
+class RegressionTests(unittest.TestCase):
+
+    def test_unobserve_property_runtime_error(self):
+        """
+        Ensure a `RuntimeError` is not thrown within
+        `unobserve_property`.
+        """
+        handler = mock.Mock()
+        handler.observed_mpv_properties = []
+
+        m = mpv.MPV()
+        m.observe_property('loop', handler)
+
+        try:
+            m.unobserve_property('loop', handler)
+        except RuntimeError:
+            self.fail(
+                """
+                "RuntimeError" exception thrown within
+                `unobserve_property`
+                """,
+            )
+        finally:
+            m.terminate()
+
+
+
 if __name__ == '__main__':
     unittest.main()

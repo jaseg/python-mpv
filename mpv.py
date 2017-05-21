@@ -681,8 +681,15 @@ class MPV(object):
         fmts = self._property_handlers[name]
         for fmt, handlers in fmts.items():
             handlers.remove(handler)
-            if not handlers:
-                del fmts[fmt]
+
+        # remove all properties that have no handlers
+        empty_props = [
+            fmt for fmt, handler in fmts.items() if not handler
+        ]
+
+        for fmt in empty_props:
+            del fmts[fmt]
+
         if not fmts:
             _mpv_unobserve_property(self._event_handle, hash(name)&0xffffffffffffffff)
 
