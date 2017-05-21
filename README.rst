@@ -1,3 +1,5 @@
+.. vim: tw=120 sw=4 et
+
 python-mpv
 ==========
 
@@ -52,7 +54,12 @@ Advanced Usage
     player = mpv.MPV(log_handler=my_log, ytdl=True, input_default_bindings=True, input_vo_keyboard=True)
 
     # Property access, these can be changed at runtime
-    player.observe_property('time-pos', lambda pos: print('Now playing at {:.2f}s'.format(pos)))
+    @player.property_observer('time-pos')
+    def time_observer(_name, value):
+        # Here, _value is either None if nothing is playing or a float containing
+        # fractional seconds since the beginning of the file.
+        print('Now playing at {:.2f}s'.format(value)))
+
     player.fullscreen = True
     player.loop = 'inf'
     # Option access, in general these require the core to reinitialize
