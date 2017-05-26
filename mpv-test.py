@@ -30,6 +30,9 @@ class TestProperties(unittest.TestCase):
     def setUp(self):
         self.m = mpv.MPV()
 
+    def tearDown(self):
+        self.m.terminate()
+
     def test_sanity(self):
         for name, (ptype, access, *_args) in mpv.ALL_PROPERTIES.items():
             self.assertTrue('r' in access or 'w' in access)
@@ -75,7 +78,9 @@ class TestProperties(unittest.TestCase):
             if 'r' in access:
                 name =  name.replace('-', '_')
                 with self.subTest(property_name=name), self.swallow_mpv_errors([
-                    mpv.ErrorCode.PROPERTY_UNAVAILABLE, mpv.ErrorCode.PROPERTY_ERROR]):
+                    mpv.ErrorCode.PROPERTY_UNAVAILABLE,
+                    mpv.ErrorCode.PROPERTY_ERROR,
+                    mpv.ErrorCode.PROPERTY_NOT_FOUND]):
                     rv = getattr(self.m, name)
                     if rv is not None and callable(ptype):
                         # Technically, any property can return None (even if of type e.g. int)
@@ -92,7 +97,8 @@ class TestProperties(unittest.TestCase):
                 with self.subTest(property_name=name), self.swallow_mpv_errors([
                         mpv.ErrorCode.PROPERTY_UNAVAILABLE,
                         mpv.ErrorCode.PROPERTY_ERROR,
-                        mpv.ErrorCode.PROPERTY_FORMAT]): # This is due to a bug with option-mapped properties in mpv 0.18.1
+                        mpv.ErrorCode.PROPERTY_FORMAT,
+                        mpv.ErrorCode.PROPERTY_NOT_FOUND]): # This is due to a bug with option-mapped properties in mpv 0.18.1
                     if ptype == int:
                         setattr(self.m, name, 0)
                         setattr(self.m, name, 1)
@@ -126,13 +132,9 @@ class TestProperties(unittest.TestCase):
                 self.m[name]
 
 
-    def tearDown(self):
-        del self.m
-
 class ObservePropertyTest(unittest.TestCase):
     def test_observe_property(self):
         handler = mock.Mock()
-        handler.observed_mpv_properties = []
 
         m = mpv.MPV()
         m.loop = 'inf'
@@ -151,8 +153,43 @@ class ObservePropertyTest(unittest.TestCase):
         m.loop = 'no'
         m.loop = 'inf'
         m.terminate() # needed for synchronization of event thread
-        handler.assert_has_calls([mock.call('loop', False), mock.call('loop', 'inf')])
+        handler.assert_has_calls([mock.call('loop', 'no'), mock.call('loop', 'inf')])
 
+    def test_property_observer_decorator(self):
+        handler = mock.Mock()
+
+        m = mpv.MPV()
+        m.loop = 'inf'
+        m.mute = True
+
+        @m.property_observer('mute')
+        @m.property_observer('loop')
+        def foo(*args, **kwargs):
+            handler(*args, **kwargs)
+
+        m.mute = False
+        m.loop = 'no'
+        self.assertEqual(m.mute, False)
+        self.assertEqual(m.loop, 'no')
+
+        m.mute = True
+        m.loop = 'inf'
+        self.assertEqual(m.mute, True)
+        self.assertEqual(m.loop, 'inf')
+
+        time.sleep(0.02)
+        foo.unobserve_mpv_properties()
+
+        m.mute = False
+        m.loop = 'no'
+        m.mute = True
+        m.loop = 'inf'
+        m.terminate() # needed for synchronization of event thread
+        handler.assert_has_calls([
+            mock.call('mute', False),
+            mock.call('loop', 'no'),
+            mock.call('mute', True),
+            mock.call('loop', 'inf')])
 
 class TestLifecycle(unittest.TestCase):
     def test_create_destroy(self):
@@ -170,6 +207,7 @@ class TestLifecycle(unittest.TestCase):
         m = mpv.MPV('no-video', 'cursor-autohide-fs-only', 'fs')
         self.assertTrue(m.fullscreen)
         self.assertEqual(m.cursor_autohide, '1000')
+        m.terminate()
 
     def test_options(self):
         with self.assertRaises(AttributeError):
@@ -178,6 +216,7 @@ class TestLifecycle(unittest.TestCase):
         self.assertEqual(m.osd_level, 0)
         self.assertEqual(m.loop, 'inf')
         self.assertEqual(m.deinterlace, 'no')
+        m.terminate()
 
     def test_event_callback(self):
         handler = mock.Mock()
@@ -194,7 +233,7 @@ class TestLifecycle(unittest.TestCase):
             ], any_order=True)
         handler.reset_mock()
 
-        del m
+        m.terminate()
         handler.assert_not_called()
 
     def test_log_handler(self):
@@ -202,8 +241,8 @@ class TestLifecycle(unittest.TestCase):
         m = mpv.MPV('no-video', log_handler=handler)
         m.play(TESTVID)
         m.wait_for_playback()
-        del m
-        handler.assert_any_call('info', 'cplayer', 'Playing: ./test.webm')
+        m.terminate()
+        handler.assert_any_call('info', 'cplayer', 'Playing: test.webm')
 
 
 class RegressionTests(unittest.TestCase):

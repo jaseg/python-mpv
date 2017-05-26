@@ -662,8 +662,6 @@ class MPV(object):
         my_handler.unregister_mpv_properties()
         ``` """
         fmt = force_fmt or MpvFormat.NODE
-        handler.observed_mpv_properties = getattr(handler, 'observed_mpv_properties', []) + [name]
-        handler.unregister_mpv_properties = lambda: self.unobserve_property(None, handler)
         self._property_handlers[name][fmt].append(handler)
         _mpv_observe_property(self._event_handle, hash(name)&0xffffffffffffffff, name.encode('utf-8'), fmt)
 
@@ -671,6 +669,7 @@ class MPV(object):
         """ Function decorator to register a property observer. See ```MPV.observe_property``` for details. """
         def wrapper(fun):
             self.observe_property(name, fun, force_fmt=force_fmt)
+            fun.unobserve_mpv_properties = lambda: self.unobserve_property(None, fun)
             return fun
         return wrapper
 
@@ -718,7 +717,6 @@ class MPV(object):
 
     def _register_script_message_handler_internal(self, target, handler):
         handler.mpv_message_targets = getattr(handler, 'mpv_script_message_targets', []) + [target]
-        handler.unregister_mpv_messages = lambda: self.unregister_message_handler(handler)
         self._message_handlers[target] = handler
 
     def unregister_message_handler(self, target_or_handler):
@@ -750,6 +748,7 @@ class MPV(object):
         """
         def register(handler):
             self._register_message_handler_internal(target, handler)
+            handler.unregister_mpv_messages = lambda: self.unregister_message_handler(handler)
             return handler
         return register
 
@@ -1072,7 +1071,7 @@ ALL_PROPERTIES = {
         'packet-sub-bitrate':           (float,  'r'),
 #        'ass-use-margins':              (bool,   'rw'),
         'ass-vsfilter-aspect-compat':   (bool,   'rw'),
-        'ass-style-override':           (bool,   'rw'),
+        'ass-style-override':           (str,   'rw'),
 #        'stream-capture':               (str,    'rw'),
         'tv-brightness':                (int,    'rw'),
         'tv-contrast':                  (int,    'rw'),
