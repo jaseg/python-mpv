@@ -9,13 +9,12 @@ features of the player, just as the lua interface does.
 Installation
 ------------
 
-Via PyPI
-~~~~~~~~
-
 .. code:: bash
+
     pip install python-mpv
 
- ...though you can also realistically just copy `mpv.py`_ into your project as it's all nicely contained in one file.
+
+...though you can also realistically just copy `mpv.py`_ into your project as it's all nicely contained in one file.
 
 Usage
 -----
