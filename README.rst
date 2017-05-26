@@ -9,12 +9,13 @@ features of the player, just as the lua interface does.
 Installation
 ------------
 
+Via PyPI
+~~~~~~~~
+
 .. code:: bash
+    pip install python-mpv
 
-    wget -O mpv.py https://raw.githubusercontent.com/jaseg/python-mpv/master/mpv.py
-
-Seriously though, part of the idea of this being all in one handy file is that you can just copy it into your project.
-That also means you don't need to be afraid of customizing it, as it's really not a lot of code. 
+ ...though you can also realistically just copy `mpv.py`_ into your project as it's all nicely contained in one file.
 
 Usage
 -----
@@ -101,3 +102,4 @@ No tabs. Probably don't bother making pure-formatting PRs except if you think it
 *really* irks you if you don't.
 
 .. _`PEP 8`: https://www.python.org/dev/peps/pep-0008/
+.. _`mpv.py`: https://raw.githubusercontent.com/jaseg/python-mpv/master/mpv.py
