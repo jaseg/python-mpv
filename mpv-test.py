@@ -253,7 +253,6 @@ class RegressionTests(unittest.TestCase):
         `unobserve_property`.
         """
         handler = mock.Mock()
-        handler.observed_mpv_properties = []
 
         m = mpv.MPV()
         m.observe_property('loop', handler)
@@ -270,6 +269,35 @@ class RegressionTests(unittest.TestCase):
         finally:
             m.terminate()
 
+    def test_instance_method_property_observer(self):
+        """
+        Ensure that bound method objects can be used as property observers.
+        See issue #26
+        """
+        handler = mock.Mock()
+        m = mpv.MPV()
+
+        class T(object):
+            def t(self, *args, **kw):
+                handler(*args, **kw)
+        t =  T()
+
+        m.loop = 'inf'
+
+        m.observe_property('loop', t.t)
+
+        m.loop = 'no'
+        self.assertEqual(m.loop, 'no')
+        m.loop = 'inf'
+        self.assertEqual(m.loop, 'inf')
+
+        time.sleep(0.02)
+        m.unobserve_property('loop', t.t)
+
+        m.loop = 'no'
+        m.loop = 'inf'
+        m.terminate() # needed for synchronization of event thread
+        handler.assert_has_calls([mock.call('loop', 'no'), mock.call('loop', 'inf')])
 
 
 if __name__ == '__main__':
