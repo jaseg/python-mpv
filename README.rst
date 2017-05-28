@@ -16,6 +16,26 @@ Installation
 
 ...though you can also realistically just copy `mpv.py`_ into your project as it's all nicely contained in one file.
 
+Requirements
+~~~~~~~~~~~~
+
+libmpv (no kidding!)
+....................
+``libmpv.so`` either locally (in your current working directory) or somewhere in your system library search path. This
+module is somewhat lenient as far as ``libmpv`` versions are concerned but since ``libmpv`` is changing quite frequently
+you'll only get all the newest features when using an up-to-date version of this module. The unit tests for this module
+do some basic automatic version compatibility checks. If you discover anything missing here, please open an `issue`_ or
+submit a `pull request`_ on github.
+
+Python 2.7, 3.5 or 3.6 (officially)
+...................................
+The ``master`` branch officially only supports recent python releases (3.5 onwards), but there is the somewhat outdated
+but functional `py2compat branch`_ providing Python 2 compatibility.
+
+.. _`py2compat branch`: https://github.com/jaseg/python-mpv/tree/py2compat
+.. _`issue`: https://github.com/jaseg/python-mpv/issues
+.. _`pull request`: https://github.com/jaseg/python-mpv/pulls
+
 Usage
 -----
 
