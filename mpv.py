@@ -46,7 +46,7 @@ else:
                 "mpv-devel or mpv-libs package. If you have libmpv around but this script can't find it, maybe consult "
                 "the documentation for ctypes.util.find_library which this script uses to look up the library "
                 "filename.")
-    backend = CDLL(sofile)
+    backend = CDLL(sofile) #'/home/user/mpv/build/libmpv.so')
     fs_enc = sys.getfilesystemencoding()
 
 
@@ -365,6 +365,57 @@ _handle_gl_func('mpv_opengl_cb_uninit_gl',              [],                     
 
 def _ensure_encoding(possibly_bytes):
     return possibly_bytes.decode('utf-8') if type(possibly_bytes) is bytes else possibly_bytes
+
+def _mpv_coax_proptype(value, proptype=str):
+    """ Intelligently coax the given python value into something that can be understood as a proptype property """
+    if type(value) is bytes:
+        return value;
+    elif type(value) is bool:
+        return b'yes' if value else b'no'
+    elif proptype in (str, int, float):
+        return str(proptype(value)).encode('utf-8')
+    else:
+        raise TypeError('Cannot coax value of type {} into property type {}'.format(type(value), proptype))
+
+def _make_node_str_list(l):
+    """ Take a list of python objects and make a MPV string node array from it.
+
+    As an example, the following  python list:
+
+    .. code:: python
+
+        l = [ "foo", 23, false ]
+
+    will result in the following MPV node object:
+
+    .. code::
+
+        struct mpv_node {
+            .format = MPV_NODE_ARRAY,
+            .u.list = *(struct mpv_node_array){
+                .num = len(l),
+                .keys = NULL,
+                .values = struct mpv_node[len(l)] {
+                    { .format = MPV_NODE_STRING, .u.string = l[0] },
+                    { .format = MPV_NODE_STRING, .u.string = l[1] },
+                    ...
+                }
+            }
+        }
+
+    """
+    char_ps = [ c_char_p(_mpv_coax_proptype(e, str)) for e in l ]
+    node_list = MpvNodeList(
+        num=len(l),
+        keys=None,
+        values=( MpvNode * len(l))( *[ MpvNode(
+                format=MpvFormat.STRING,
+                val=cast(pointer(p), POINTER(c_longlong)).contents) # NOTE: ctypes is kinda crappy here
+            for p in char_ps ]))
+    node = MpvNode(
+        format=MpvFormat.NODE_ARRAY,
+        val=addressof(node_list))
+    return char_ps, node_list, node, cast(pointer(node), c_void_p)
 
 
 def _event_generator(handle):
@@ -920,25 +971,28 @@ class MPV(object):
 
     def _set_property(self, name, value, proptype=str):
         ename = name.encode('utf-8')
-        if type(value) is bytes:
-            _mpv_set_property_string(self.handle, ename, value)
-        elif type(value) is bool:
-            _mpv_set_property_string(self.handle, ename, b'yes' if value else b'no')
-        elif proptype in (str, int, float):
-            _mpv_set_property_string(self.handle, ename, str(proptype(value)).encode('utf-8'))
-        else:
-            raise TypeError('Cannot set {} property {} to value of type {}'.format(proptype, name, type(value)))
+        try:
+            if proptype is MpvFormat.NODE:
+                if isinstance(value, (list, set, dict)):
+                    _1, _2, _3, pointer = _make_node_str_list(value)
+                    _mpv_set_property(self.handle, ename, MpvFormat.NODE, pointer)
+                else:
+                    _mpv_set_property_string(self.handle, ename, _mpv_coax_proptype(value, str))
+            else:
+                _mpv_set_property_string(self.handle, ename, _mpv_coax_proptype(value, proptype))
+        except TypeError as e:
+            raise TypeError("Error setting MPV {} property {}".format(proptype, name)) from e
 
     # Dict-like option access
     def __getitem__(self, name, file_local=False):
         """ Get an option value """
         prefix = 'file-local-options/' if file_local else 'options/'
-        return self._get_property(prefix+name)
+        return self._get_property(prefix+name, proptype=MpvFormat.NODE)
 
     def __setitem__(self, name, value, file_local=False):
         """ Set an option value """
         prefix = 'file-local-options/' if file_local else 'options/'
-        return self._set_property(prefix+name, value)
+        return self._set_property(prefix+name, value, proptype=MpvFormat.NODE)
 
     def __iter__(self):
         """ Iterate over all option names """
