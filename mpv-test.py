@@ -134,6 +134,10 @@ class TestProperties(unittest.TestCase):
                 mpv.ErrorCode.PROPERTY_UNAVAILABLE, mpv.ErrorCode.PROPERTY_NOT_FOUND, mpv.ErrorCode.PROPERTY_ERROR]):
                 self.m[name]
 
+    def test_multivalued_option(self):
+        self.m['external-file'] = ['test.webm', b'test.webm']
+        self.assertEqual(self.m['external-file'], [b'test.webm', b'test.webm'])
+
 
 class ObservePropertyTest(unittest.TestCase):
     def test_observe_property(self):
