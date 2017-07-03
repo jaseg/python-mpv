@@ -144,6 +144,11 @@ class ObservePropertyTest(unittest.TestCase):
         m.loop = 'no'
         self.assertEqual(m.loop, 'no')
 
+        # Wait for tick. AFAICT property events are only generated at regular
+        # intervals, and if we change a property too fast we don't get any
+        # events. This is a limitation of the upstream API.
+        time.sleep(0.01)
+
         m.loop = 'inf'
         self.assertEqual(m.loop, 'inf')
 
@@ -172,6 +177,19 @@ class ObservePropertyTest(unittest.TestCase):
         self.assertEqual(m.mute, False)
         self.assertEqual(m.loop, 'no')
 
+        # Wait for tick. AFAICT property events are only generated at regular
+        # intervals, and if we change a property too fast we don't get any
+        # events. This is a limitation of the upstream API.
+        time.sleep(0.01)
+        # Another API limitation is that the order of property change events on
+        # different properties does not necessarily exactly match the order in
+        # which these properties were previously accessed. Thus, any_order.
+        handler.assert_has_calls([
+            mock.call('mute', False),
+            mock.call('loop', 'no')],
+            any_order=True)
+        handler.reset_mock()
+
         m.mute = True
         m.loop = 'inf'
         self.assertEqual(m.mute, True)
@@ -186,10 +204,9 @@ class ObservePropertyTest(unittest.TestCase):
         m.loop = 'inf'
         m.terminate() # needed for synchronization of event thread
         handler.assert_has_calls([
-            mock.call('mute', False),
-            mock.call('loop', 'no'),
             mock.call('mute', True),
-            mock.call('loop', 'inf')])
+            mock.call('loop', 'inf')],
+            any_order=True)
 
 class TestLifecycle(unittest.TestCase):
     def test_create_destroy(self):
@@ -288,6 +305,10 @@ class RegressionTests(unittest.TestCase):
 
         m.loop = 'no'
         self.assertEqual(m.loop, 'no')
+        # Wait for tick. AFAICT property events are only generated at regular
+        # intervals, and if we change a property too fast we don't get any
+        # events. This is a limitation of the upstream API.
+        time.sleep(0.01)
         m.loop = 'inf'
         self.assertEqual(m.loop, 'inf')
 
