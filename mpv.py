@@ -971,17 +971,14 @@ class MPV(object):
 
     def _set_property(self, name, value, proptype=str):
         ename = name.encode('utf-8')
-        try:
-            if proptype is MpvFormat.NODE:
-                if isinstance(value, (list, set, dict)):
-                    _1, _2, _3, pointer = _make_node_str_list(value)
-                    _mpv_set_property(self.handle, ename, MpvFormat.NODE, pointer)
-                else:
-                    _mpv_set_property_string(self.handle, ename, _mpv_coax_proptype(value, str))
+        if proptype is MpvFormat.NODE:
+            if isinstance(value, (list, set, dict)):
+                _1, _2, _3, pointer = _make_node_str_list(value)
+                _mpv_set_property(self.handle, ename, MpvFormat.NODE, pointer)
             else:
-                _mpv_set_property_string(self.handle, ename, _mpv_coax_proptype(value, proptype))
-        except TypeError as e:
-            raise TypeError("Error setting MPV {} property {}".format(proptype, name)) from e
+                _mpv_set_property_string(self.handle, ename, _mpv_coax_proptype(value, str))
+        else:
+            _mpv_set_property_string(self.handle, ename, _mpv_coax_proptype(value, proptype))
 
     # Dict-like option access
     def __getitem__(self, name, file_local=False):

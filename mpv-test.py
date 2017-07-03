@@ -64,7 +64,8 @@ class TestProperties(unittest.TestCase):
                 continue # Property seems to be an aliased option
             if prop in ('ad-spdif-dtshd', 'softvol', 'heartbeat-cmd', 'input-x11-keyboard',
                 'vo-vdpau-queuetime-windowed', 'demuxer-max-packets', '3dlut-size', 'right-alt-gr',
-                'mkv-subtitle-preroll', 'dtshd', 'softvol-max'):
+                'mkv-subtitle-preroll', 'dtshd', 'softvol-max', 'pulse-sink',
+                'alsa-device', 'oss-device', 'ao-defaults', 'vo-defaults'):
                 continue # Property seems to be an aliased option that was forgotten in MPV.options
             prop = prop.replace('-', '_')
             self.assertTrue(prop in ledir, 'Property {} not found'.format(prop))
@@ -100,13 +101,15 @@ class TestProperties(unittest.TestCase):
                         mpv.ErrorCode.PROPERTY_FORMAT,
                         mpv.ErrorCode.PROPERTY_NOT_FOUND]): # This is due to a bug with option-mapped properties in mpv 0.18.1
                     if ptype == int:
-                        setattr(self.m, name, 0)
+                        setattr(self.m, name, 100)
                         setattr(self.m, name, 1)
+                        setattr(self.m, name, 0)
                         setattr(self.m, name, -1)
                     elif ptype == float:
-                        setattr(self.m, name, 0.0)
+                        # Some properties have range checks done on their values
                         setattr(self.m, name, 1)
                         setattr(self.m, name, 1.0)
+                        setattr(self.m, name, 0.0)
                         setattr(self.m, name, -1.0)
                         setattr(self.m, name, float('nan'))
                     elif ptype == str:
@@ -158,7 +161,7 @@ class ObservePropertyTest(unittest.TestCase):
         m.loop = 'no'
         m.loop = 'inf'
         m.terminate() # needed for synchronization of event thread
-        handler.assert_has_calls([mock.call('loop', 'no'), mock.call('loop', 'inf')])
+        handler.assert_has_calls([mock.call('loop', False), mock.call('loop', 'inf')])
 
     def test_property_observer_decorator(self):
         handler = mock.Mock()
@@ -186,7 +189,7 @@ class ObservePropertyTest(unittest.TestCase):
         # which these properties were previously accessed. Thus, any_order.
         handler.assert_has_calls([
             mock.call('mute', False),
-            mock.call('loop', 'no')],
+            mock.call('loop', False)],
             any_order=True)
         handler.reset_mock()
 
@@ -318,7 +321,7 @@ class RegressionTests(unittest.TestCase):
         m.loop = 'no'
         m.loop = 'inf'
         m.terminate() # needed for synchronization of event thread
-        handler.assert_has_calls([mock.call('loop', 'no'), mock.call('loop', 'inf')])
+        handler.assert_has_calls([mock.call('loop', False), mock.call('loop', 'inf')])
 
 
 if __name__ == '__main__':
