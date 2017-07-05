@@ -3,7 +3,7 @@
 from setuptools import setup, find_packages
 setup(
     name = 'python-mpv',
-    version = '0.2.4',
+    version = '0.2.5',
     py_modules = ['mpv'],
     description = ('A python interface to the mpv media player'),
     url = 'https://github.com/jaseg/python-mpv',
