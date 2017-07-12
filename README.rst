@@ -78,7 +78,7 @@ Advanced Usage
     def time_observer(_name, value):
         # Here, _value is either None if nothing is playing or a float containing
         # fractional seconds since the beginning of the file.
-        print('Now playing at {:.2f}s'.format(value)))
+        print('Now playing at {:.2f}s'.format(value))
 
     player.fullscreen = True
     player.loop = 'inf'

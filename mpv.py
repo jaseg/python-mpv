@@ -766,8 +766,7 @@ class MPV(object):
         ``` """
         self._register_message_handler_internal(target, handler)
 
-    def _register_script_message_handler_internal(self, target, handler):
-        handler.mpv_message_targets = getattr(handler, 'mpv_script_message_targets', []) + [target]
+    def _register_message_handler_internal(self, target, handler):
         self._message_handlers[target] = handler
 
     def unregister_message_handler(self, target_or_handler):
