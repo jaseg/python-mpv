@@ -46,7 +46,7 @@ else:
                 "mpv-devel or mpv-libs package. If you have libmpv around but this script can't find it, maybe consult "
                 "the documentation for ctypes.util.find_library which this script uses to look up the library "
                 "filename.")
-    backend = CDLL(sofile) #'/home/user/mpv/build/libmpv.so')
+    backend = CDLL(sofile)
     fs_enc = sys.getfilesystemencoding()
 
 
