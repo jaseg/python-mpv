@@ -815,7 +815,6 @@ class MPV(object):
 
         my_handler.unregister_mpv_events()
         """
-        callback.unregister_mpv_events = partial(self.unregister_event_callback, callback)
         self._event_callbacks.append(callback)
 
     def unregister_event_callback(self, callback):
