@@ -135,8 +135,8 @@ class TestProperties(unittest.TestCase):
                 self.m[name]
 
     def test_multivalued_option(self):
-        self.m['external-file'] = ['test.webm', b'test.webm']
-        self.assertEqual(self.m['external-file'], [b'test.webm', b'test.webm'])
+        self.m['external-files'] = ['test.webm', b'test.webm']
+        self.assertEqual(self.m['external-files'], [b'test.webm', b'test.webm'])
 
 
 class ObservePropertyTest(unittest.TestCase):
@@ -228,7 +228,7 @@ class TestLifecycle(unittest.TestCase):
     def test_flags(self):
         with self.assertRaises(AttributeError):
             mpv.MPV('this-option-does-not-exist')
-        m = mpv.MPV('no-video', 'cursor-autohide-fs-only', 'fs')
+        m = mpv.MPV('cursor-autohide-fs-only', 'fs', video=False)
         self.assertTrue(m.fullscreen)
         self.assertEqual(m.cursor_autohide, '1000')
         m.terminate()
@@ -244,7 +244,7 @@ class TestLifecycle(unittest.TestCase):
 
     def test_event_callback(self):
         handler = mock.Mock()
-        m = mpv.MPV('no-video')
+        m = mpv.MPV(video=False)
         m.register_event_callback(handler)
         m.play(TESTVID)
         m.wait_for_playback()
@@ -262,7 +262,7 @@ class TestLifecycle(unittest.TestCase):
 
     def test_log_handler(self):
         handler = mock.Mock()
-        m = mpv.MPV('no-video', log_handler=handler)
+        m = mpv.MPV(video=False, log_handler=handler)
         m.play(TESTVID)
         m.wait_for_playback()
         m.terminate()

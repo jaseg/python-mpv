@@ -1120,6 +1120,12 @@ ALL_PROPERTIES = {
         'tv-contrast':                  (int,    'rw'),
         'tv-saturation':                (int,    'rw'),
         'tv-hue':                       (int,    'rw'),
+        'tv-freq':                      (float,  'rw'),
+        'tv-norm':                      (str,    'rw'),
+        'tv-scan':                      (bool,   'rw'),
+        'tv-channel':                   (str,    'rw'),
+        'dvb-channel':                  (_node,  'rw'),
+        'dvb-channel-name':             (str,    'rw'),
         'playlist-pos':                 (int,    'rw'),
         'playlist-pos-1':               (int,    'rw'), # ugh.
         'playlist-count':               (int,    'r'),
@@ -1201,6 +1207,7 @@ ALL_PROPERTIES = {
         'af':                           (_node,  'r', True),
         'options':                      (_node,  'r', True),
         'file-local-options':           (_node,  'r', True),
+        'vo-passes':                    (_node,  'r', True),
         'property-list':                (_commalist,'r')}
 
 def _bindproperty(MPV, name, proptype, access, decode_str=False):
