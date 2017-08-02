@@ -469,7 +469,7 @@ class MPV(object):
     """ See man mpv(1) for the details of the implemented commands. All mpv
     properties can be accessed as ```my_mpv.some_property``` and all mpv
     options can be accessed as ```my_mpv['some-option']```. """
-    def __init__(self, *extra_mpv_flags, log_handler=None, start_event_thread=True, **extra_mpv_opts):
+    def __init__(self, *extra_mpv_flags, log_handler=None, start_event_thread=True, loglevel=None, **extra_mpv_opts):
         """ Create an MPV instance.
 
         Extra arguments and extra keyword arguments will be passed to mpv as options. """
@@ -496,15 +496,14 @@ class MPV(object):
         self._event_handle = _mpv_create_client(self.handle, b'py_event_handler')
         self._loop = partial(_event_loop, self._event_handle, self._playback_cond, self._event_callbacks,
                 self._message_handlers, self._property_handlers, log_handler)
+        if loglevel is not None or log_handler is not None:
+            self.set_loglevel(loglevel or 'terminal-default')
         if start_event_thread:
             self._event_thread = threading.Thread(target=self._loop, name='MPVEventHandlerThread')
             self._event_thread.setDaemon(True)
             self._event_thread.start()
         else:
             self._event_thread = None
-
-        if log_handler is not None:
-            self.set_loglevel('terminal-default')
 
     def wait_for_playback(self):
         """ Waits until playback of the current title is paused or done """
