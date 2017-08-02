@@ -425,11 +425,6 @@ def _event_generator(handle):
             raise StopIteration()
         yield event
 
-def load_lua():
-    """ Use this function if you intend to use mpv's built-in lua interpreter. This is e.g. needed for playback of
-    youtube urls. """
-    CDLL('liblua.so', mode=RTLD_GLOBAL)
-
 
 def _event_loop(event_handle, playback_cond, event_callbacks, message_handlers, property_handlers, log_handler):
     for event in _event_generator(event_handle):
