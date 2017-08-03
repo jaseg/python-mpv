@@ -90,6 +90,12 @@ Advanced Usage
             print('THERE IS NO ESCAPE')
     player.register_key_binding('q', my_q_binding)
 
+    def my_s_binding(state, key):
+        if state[0] == 'd':
+            pillow_img = player.screenshot_raw()
+            pillow_img.save('screenshot.png')
+    player.register_key_binding('s', my_s_binding)
+
     player.play('https://youtu.be/DLzxrzFCyOs')
     player.wait_for_playback()
 
