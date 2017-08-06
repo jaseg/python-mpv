@@ -223,25 +223,23 @@ class ObservePropertyTest(MpvTestCase):
             any_order=True)
         handler.reset_mock()
 
-        # FIXME the upstream observer API is extremely unreliable ATM.
+        m.mute = True
+        m.loop = 'inf'
+        self.assertEqual(m.mute, True)
+        self.assertEqual(m.loop, 'inf')
 
-        #m.mute = True
-        #m.loop = 'inf'
-        #self.assertEqual(m.mute, True)
-        #self.assertEqual(m.loop, 'inf')
+        time.sleep(0.05)
+        foo.unobserve_mpv_properties()
 
-        #time.sleep(0.5)
-        #foo.unobserve_mpv_properties()
-
-        #m.mute = False
-        #m.loop = False
-        #m.mute = True
-        #m.loop = 'inf'
-        #m.terminate() # needed for synchronization of event thread
-        #handler.assert_has_calls([
-        #    mock.call('mute', True),
-        #    mock.call('loop', 'inf')],
-        #    any_order=True)
+        m.mute = False
+        m.loop = False
+        m.mute = True
+        m.loop = 'inf'
+        m.terminate() # needed for synchronization of event thread
+        handler.assert_has_calls([
+            mock.call('mute', True),
+            mock.call('loop', 'inf')],
+            any_order=True)
 
 class TestLifecycle(unittest.TestCase):
     def test_create_destroy(self):
@@ -349,8 +347,7 @@ class RegressionTests(MpvTestCase):
         m.loop = False
         m.loop = 'inf'
         m.terminate() # needed for synchronization of event thread
-        # FIXME the upstream observer API is extremely unreliable ATM.
-        #handler.assert_has_calls([mock.call('loop', False), mock.call('loop', 'inf')])
+        handler.assert_has_calls([mock.call('loop', False), mock.call('loop', 'inf')])
 
 
 if __name__ == '__main__':
