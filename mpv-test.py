@@ -53,6 +53,8 @@ class TestProperties(MpvTestCase):
         while self.m.core_idle:
             time.sleep(0.05)
         for name in sorted(self.m.property_list):
+            if name in ('external-file','input-ipc-server', 'heartbeat-cmd', 'wid', 'input-file'):
+                continue
             name =  name.replace('-', '_')
             with self.subTest(property_name=name), self.swallow_mpv_errors([
                     mpv.ErrorCode.PROPERTY_UNAVAILABLE,
@@ -76,6 +78,86 @@ class TestProperties(MpvTestCase):
                     setattr(self.m, name, b'bazbazbaz'*1000)
                     setattr(self.m, name, True)
                     setattr(self.m, name, False)
+
+    def test_property_bounce(self):
+        self.m.aid = False
+        self.assertEqual(self.m.audio, False)
+        self.m.aid = 'auto'
+        self.assertEqual(self.m.audio, 'auto')
+        self.m.aid = 'no'
+        self.assertEqual(self.m.audio, False)
+        self.m.audio = 'auto'
+        self.assertEqual(self.m.aid, 'auto')
+        self.m.audio = False
+        self.assertEqual(self.m.aid, False)
+        self.m.audio = 'auto'
+        self.assertEqual(self.m.aid, 'auto')
+        self.m.audio = 'no'
+        self.assertEqual(self.m.aid, False)
+
+    def test_array_property_bounce(self):
+        self.m.alang = 'en'
+        self.assertEqual(self.m.alang, ['en'])
+        self.m.alang = 'de'
+        self.assertEqual(self.m.alang, ['de'])
+        self.m.alang = ['de', 'en']
+        self.assertEqual(self.m.alang, ['de', 'en'])
+        self.m.alang = 'de,en'
+        self.assertEqual(self.m.alang, ['de', 'en'])
+        self.m.alang = ['de,en']
+        self.assertEqual(self.m.alang, ['de,en'])
+
+    def test_osd_property_bounce(self):
+        self.m.alang = ['en']
+        self.assertEqual(self.m.osd.alang, 'en')
+        self.m.alang = ['de']
+        self.assertEqual(self.m.osd.alang, 'de')
+        self.m.alang = ['en', 'de']
+        self.assertEqual(self.m.osd.alang, 'en,de')
+
+    def test_raw_property_bounce(self):
+        self.m.alang = 'en'
+        self.assertEqual(self.m.raw.alang, [b'en'])
+        self.m.alang = 'de'
+        self.assertEqual(self.m.raw.alang, [b'de'])
+        self.m.alang = ['de', 'en']
+        self.assertEqual(self.m.raw.alang, [b'de', b'en'])
+        self.m.alang = 'de,en'
+        self.assertEqual(self.m.raw.alang, [b'de', b'en'])
+        self.m.alang = ['de,en']
+        self.assertEqual(self.m.raw.alang, [b'de,en'])
+
+    def test_property_decoding_invalid_utf8(self):
+        invalid_utf8 = b'foo\xc3\x28bar'
+        self.m.alang = invalid_utf8
+        self.assertEqual(self.m.alang, [invalid_utf8])
+        self.assertEqual(self.m.raw.alang, [invalid_utf8])
+        with self.assertRaises(UnicodeDecodeError):
+            self.m.strict.alang
+        with self.assertRaises(UnicodeDecodeError):
+            # alang is considered safe and pasted straight into the OSD string. But OSD strings should always be valid
+            # UTF-8. This test may be removed in case OSD encoding sanitization is handled differently in the future.
+            self.m.osd.alang
+
+    def test_property_decoding_valid_utf8(self):
+        valid_utf8 = 'pröpérty'
+        self.m.alang = valid_utf8
+        self.assertEqual(self.m.alang, [valid_utf8])
+        self.assertEqual(self.m.raw.alang, [valid_utf8.encode('utf-8')])
+        self.assertEqual(self.m.osd.alang, valid_utf8)
+        self.assertEqual(self.m.strict.alang, [valid_utf8])
+
+    def test_property_decoding_multi(self):
+        valid_utf8 = 'pröpérty'
+        invalid_utf8 = b'foo\xc3\x28bar'
+        self.m.alang = [valid_utf8, 'foo', invalid_utf8]
+        self.assertEqual(self.m.alang, [valid_utf8, 'foo', invalid_utf8])
+        self.assertEqual(self.m.raw.alang, [valid_utf8.encode('utf-8'), b'foo', invalid_utf8])
+        with self.assertRaises(UnicodeDecodeError):
+            self.m.strict.alang
+        with self.assertRaises(UnicodeDecodeError):
+            # See comment in test_property_decoding_invalid_utf8
+            self.m.osd.alang
 
     def test_option_read(self):
         self.m.loop = 'inf'
