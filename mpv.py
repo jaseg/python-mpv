@@ -28,7 +28,7 @@ import collections
 import re
 import traceback
 
-# vim: ts=4 sw=4 et
+from PIL import Image
 
 if os.name == 'nt':
     backend = CDLL('mpv-1.dll')
@@ -663,7 +663,6 @@ class MPV(object):
 
     def screenshot_raw(self, includes='subtitles'):
         """ Mapped mpv screenshot_raw command, see man mpv(1). Returns a pillow Image object."""
-        from PIL import Image
         res = self.node_command('screenshot-raw', includes)
         if res['format'] != 'bgr0':
             raise ValueError('Screenshot in unknown format "{}". Currently, only bgr0 is supported.'
@@ -1065,3 +1064,4 @@ class MPV(object):
         except AttributeError:
             return None
 
+# vim: ts=4 sw=4 et

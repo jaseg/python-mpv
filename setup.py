@@ -10,8 +10,7 @@ setup(
     author = 'jaseg',
     author_email = 'github@jaseg.net',
     license = 'AGPLv3+',
-    keywords = ['mpv', 'library', 'video', 'audio', 'player', 'display',
-        'multimedia'],
+    keywords = ['mpv', 'library', 'video', 'audio', 'player', 'display', 'multimedia'],
     classifiers = [
         'Development Status :: 4 - Beta',
         'Environment :: Win32 (MS Windows)',
@@ -25,5 +24,5 @@ setup(
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.5',
         'Topic :: Multimedia :: Sound/Audio :: Players',
-        'Topic :: Multimedia :: Video :: Display']
-)
+        'Topic :: Multimedia :: Video :: Display'],
+    install_requires=['PIL'])
