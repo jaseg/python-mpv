@@ -260,7 +260,7 @@ class MpvEventLogMessage(Structure):
     def as_dict(self, decoder=identity_decoder):
         return { 'prefix': self.prefix.decode('utf-8'),
                  'level':  self.level.decode('utf-8'),
-                 'text':   self.text.decode('utf-8').rstrip() }
+                 'text':   decoder(self.text).rstrip() }
 
 class MpvEventEndFile(c_int):
     EOF_OR_INIT_FAILURE = 0
@@ -440,7 +440,7 @@ def _event_generator(handle):
 def _event_loop(event_handle, playback_cond, event_callbacks, message_handlers, property_handlers, log_handler):
     for event in _event_generator(event_handle):
         try:
-            devent = event.as_dict(decoder=strict_decoder) # copy data from ctypes
+            devent = event.as_dict(decoder=lazy_decoder) # copy data from ctypes
             eid = devent['event_id']
             for callback in event_callbacks:
                 callback(devent)
@@ -467,6 +467,9 @@ def _event_loop(event_handle, playback_cond, event_callbacks, message_handlers, 
         except Exception as e:
             traceback.print_exc()
 
+_py_to_mpv = lambda name: name.replace('_', '-')
+_mpv_to_py = lambda name: name.replace('-', '_')
+
 class _Proxy:
     def __init__(self, mpv):
         super().__setattr__('mpv', mpv)
@@ -487,7 +490,7 @@ class _FileLocalProxy(_Proxy):
 
 class _OSDPropertyProxy(_PropertyProxy):
     def __getattr__(self, name):
-        return self.mpv._get_property(name, fmt=MpvFormat.OSD_STRING)
+        return self.mpv._get_property(_py_to_mpv(name), fmt=MpvFormat.OSD_STRING)
 
     def __setattr__(self, _name, _value):
         raise AttributeError('OSD properties are read-only. Please use the regular property API for writing.')
@@ -498,10 +501,10 @@ class _DecoderPropertyProxy(_PropertyProxy):
         super().__setattr__('_decoder', decoder)
 
     def __getattr__(self, name):
-        return self.mpv._get_property(name, decoder=self._decoder)
+        return self.mpv._get_property(_py_to_mpv(name), decoder=self._decoder)
 
     def __setattr__(self, name, value):
-        setattr(self.mpv, name, value)
+        setattr(self.mpv, _py_to_mpv(name), value)
 
 class MPV(object):
     """ See man mpv(1) for the details of the implemented commands. All mpv
@@ -525,8 +528,8 @@ class MPV(object):
 
         Extra arguments and extra keyword arguments will be passed to mpv as options. """
 
-        self._event_thread = None
         self.handle = _mpv_create()
+        self._event_thread = None
 
         _mpv_set_option_string(self.handle, b'audio-display', b'no')
         istr = lambda o: ('yes' if o else 'no') if type(o) is bool else str(o)
@@ -560,7 +563,6 @@ class MPV(object):
             self._event_thread.start()
         else:
             self._event_thread = None
-        self.__setattr__ = lambda self, name, value: self._set_property(name, value)
 
     def wait_for_playback(self):
         """ Waits until playback of the current title is paused or done """
@@ -1023,8 +1025,16 @@ class MPV(object):
             _mpv_set_property_string(self.handle, ename, _mpv_coax_proptype(value))
 
     def __getattr__(self, name):
-        name = name.replace('_', '-')
-        return self._get_property(name, lazy_decoder)
+        return self._get_property(_py_to_mpv(name), lazy_decoder)
+
+    def __setattr__(self, name, value):
+            try:
+                if name != 'handle':
+                    self._set_property(_py_to_mpv(name), value)
+                else:
+                    super().__setattr__(name, value)
+            except AttributeError:
+                super().__setattr__(name, value)
 
     def __dir__(self):
         return super().__dir__() + [ name.replace('-', '_') for name in self.property_list ]
