@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# vim: ts=4 sw=4 et
 #
 # Python MPV library module
 # Copyright (C) 2017 Sebastian Götte <code@jaseg.net>
@@ -27,8 +28,6 @@ from functools import partial, wraps
 import collections
 import re
 import traceback
-
-# vim: ts=4 sw=4 et
 
 if os.name == 'nt':
     backend = CDLL('mpv-1.dll')
