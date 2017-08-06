@@ -10,6 +10,9 @@ setup(
     author = 'jaseg',
     author_email = 'github@jaseg.net',
     license = 'AGPLv3+',
+    extras_require = {
+        'screenshot_raw': ['Pillow']
+        },
     keywords = ['mpv', 'library', 'video', 'audio', 'player', 'display',
         'multimedia'],
     classifiers = [
