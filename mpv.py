@@ -1029,7 +1029,7 @@ class MPV(object):
 
     def __setattr__(self, name, value):
             try:
-                if name != 'handle':
+                if name != 'handle' and not name.startswith('_'):
                     self._set_property(_py_to_mpv(name), value)
                 else:
                     super().__setattr__(name, value)
