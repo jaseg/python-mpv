@@ -837,8 +837,8 @@ class MPV(object):
 
         You can also call the ```unregister_mpv_messages``` function attribute set on the handler function when it is
         registered. """
-        if isinstance(target, str):
-            del self._message_handlers[target]
+        if isinstance(target_or_handler, str):
+            del self._message_handlers[target_or_handler]
         else:
             for key, val in self._message_handlers.items():
                 if val == target_or_handler:
@@ -945,10 +945,16 @@ class MPV(object):
         this is completely fine--but, if you are about to pass untrusted input into this parameter, better double-check
         whether this is secure in your case. """
 
-        def wrapper(fun):
+        def register(fun):
+            fun.mpv_key_bindings = getattr(fun, 'mpv_key_bindings', []) + [keydef]
+            def unregister_all():
+                for keydef in fun.mpv_key_bindings:
+                    self.unregister_key_binding(keydef)
+            fun.unregister_mpv_key_bindings = unregister_all
+
             self.register_key_binding(keydef, fun, mode)
             return fun
-        return wrapper
+        return register
 
     def register_key_binding(self, keydef, callback_or_cmd, mode='force'):
         """ Register a key binding. This takes an mpv keydef and either a string containing a mpv
@@ -959,11 +965,6 @@ class MPV(object):
                     'symbolic name (as printed by --input-keylist')
         binding_name = MPV._binding_name(keydef)
         if callable(callback_or_cmd):
-            callback_or_cmd.mpv_key_bindings = getattr(callback_or_cmd, 'mpv_key_bindings', []) + [keydef]
-            def unregister_all():
-                for keydef in callback_or_cmd.mpv_key_bindings:
-                    self.unregister_key_binding(keydef)
-            callback_or_cmd.unregister_mpv_key_bindings = unregister_all
             self._key_binding_handlers[binding_name] = callback_or_cmd
             self.register_message_handler('key-binding', self._handle_key_binding_message)
             self.command('define-section',

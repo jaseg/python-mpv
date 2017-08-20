@@ -243,6 +243,79 @@ class ObservePropertyTest(MpvTestCase):
             mock.call('loop', 'inf')],
             any_order=True)
 
+class KeyBindingTest(MpvTestCase):
+    def test_register_direct_cmd(self):
+        self.m.register_key_binding('a', 'playlist-clear')
+        self.assertEqual(self.m._key_binding_handlers, {})
+        self.m.register_key_binding('Ctrl+Shift+a', 'playlist-clear')
+        self.m.unregister_key_binding('a')
+        self.m.unregister_key_binding('Ctrl+Shift+a')
+
+    def test_register_direct_fun(self):
+        b = mpv.MPV._binding_name
+
+        def reg_test_fun(state, name):
+            pass
+
+        self.m.register_key_binding('a', reg_test_fun)
+        self.assertIn(b('a'), self.m._key_binding_handlers)
+        self.assertEqual(self.m._key_binding_handlers[b('a')], reg_test_fun)
+
+        self.m.unregister_key_binding('a')
+        self.assertNotIn(b('a'), self.m._key_binding_handlers)
+
+    def test_register_direct_bound_method(self):
+        b = mpv.MPV._binding_name
+
+        class RegTestCls:
+            def method(self, state, name):
+                pass
+        instance = RegTestCls()
+
+        self.m.register_key_binding('a', instance.method)
+        self.assertIn(b('a'), self.m._key_binding_handlers)
+        self.assertEqual(self.m._key_binding_handlers[b('a')], instance.method)
+
+        self.m.unregister_key_binding('a')
+        self.assertNotIn(b('a'), self.m._key_binding_handlers)
+
+    def test_register_decorator_fun(self):
+        b = mpv.MPV._binding_name
+
+        @self.m.key_binding('a')
+        def reg_test_fun(state, name):
+            pass
+        self.assertEqual(reg_test_fun.mpv_key_bindings, ['a'])
+        self.assertIn(b('a'), self.m._key_binding_handlers)
+        self.assertEqual(self.m._key_binding_handlers[b('a')], reg_test_fun)
+
+        reg_test_fun.unregister_mpv_key_bindings()
+        self.assertNotIn(b('a'), self.m._key_binding_handlers)
+
+    def test_register_decorator_fun_chaining(self):
+        b = mpv.MPV._binding_name
+
+        @self.m.key_binding('a')
+        @self.m.key_binding('b')
+        def reg_test_fun(state, name):
+            pass
+
+        @self.m.key_binding('c')
+        def reg_test_fun_2_stay_intact(state, name):
+            pass
+
+        self.assertEqual(reg_test_fun.mpv_key_bindings, ['b', 'a'])
+        self.assertIn(b('a'), self.m._key_binding_handlers)
+        self.assertIn(b('b'), self.m._key_binding_handlers)
+        self.assertIn(b('c'), self.m._key_binding_handlers)
+        self.assertEqual(self.m._key_binding_handlers[b('a')], reg_test_fun)
+        self.assertEqual(self.m._key_binding_handlers[b('b')], reg_test_fun)
+
+        reg_test_fun.unregister_mpv_key_bindings()
+        self.assertNotIn(b('a'), self.m._key_binding_handlers)
+        self.assertNotIn(b('b'), self.m._key_binding_handlers)
+        self.assertIn(b('c'), self.m._key_binding_handlers)
+
 class TestLifecycle(unittest.TestCase):
     def test_create_destroy(self):
         thread_names = lambda: [ t.name for t in threading.enumerate() ]
