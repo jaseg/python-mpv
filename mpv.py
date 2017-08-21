@@ -915,8 +915,38 @@ class MPV(object):
     def _binding_name(callback_or_cmd):
         return 'py_kb_{:016x}'.format(hash(callback_or_cmd)&0xffffffffffffffff)
 
+    def on_key_press(self, keydef, mode='force'):
+        """ Function decorator to register a simplified key binding. The callback is called whenever the key
+        given is *pressed*.
+
+        To unregister the callback function, you can call its ```unregister_mpv_key_bindings``` attribute:
+
+        ```
+        player = mpv.MPV()
+        @player.on_key_press('Q')
+        def binding():
+            print('blep')
+
+        binding.unregister_mpv_key_bindings()
+        ```
+
+        WARNING: For a single keydef only a single callback/command can be registered at the same time. If you register
+        a binding multiple times older bindings will be overwritten and there is a possibility of references leaking. So
+        don't do that.
+
+        The BIG FAT WARNING regarding untrusted keydefs from the key_binding method applies here as well. """
+
+        def register(fun):
+            @self.key_binding(keydef, mode)
+            @wraps(fun)
+            def wrapper(state='p-', name=None):
+                if state[0] in ('d', 'p'):
+                    fun()
+            return wrapper
+        return register
+
     def key_binding(self, keydef, mode='force'):
-        """ Function decorator to register a key binding.
+        """ Function decorator to register a low-level key binding.
 
         The callback function signature is ```fun(key_state, key_name)``` where ```key_state``` is either ```'U'``` for
         "key up" or ```'D'``` for "key down".

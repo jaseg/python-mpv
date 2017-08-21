@@ -316,6 +316,41 @@ class KeyBindingTest(MpvTestCase):
         self.assertNotIn(b('b'), self.m._key_binding_handlers)
         self.assertIn(b('c'), self.m._key_binding_handlers)
 
+    def test_register_simple_decorator_fun_chaining(self):
+        b = mpv.MPV._binding_name
+
+        handler1, handler2 = mock.Mock(), mock.Mock()
+
+        @self.m.on_key_press('a')
+        @self.m.on_key_press('b')
+        def reg_test_fun(*args, **kwargs):
+            handler1(*args, **kwargs)
+
+        @self.m.on_key_press('c')
+        def reg_test_fun_2_stay_intact(*args, **kwargs):
+            handler2(*args, **kwargs)
+
+        self.assertEqual(reg_test_fun.mpv_key_bindings, ['b', 'a'])
+        self.assertIn(b('a'), self.m._key_binding_handlers)
+        self.assertIn(b('b'), self.m._key_binding_handlers)
+        self.assertIn(b('c'), self.m._key_binding_handlers)
+
+        self.m._key_binding_handlers[b('a')]('p-', 'q')
+        handler1.assert_has_calls([ mock.call() ])
+        handler2.assert_has_calls([])
+        handler1.reset_mock()
+        self.m._key_binding_handlers[b('b')]('p-', 'q')
+        handler1.assert_has_calls([ mock.call() ])
+        handler2.assert_has_calls([])
+        self.m._key_binding_handlers[b('c')]('p-', 'q')
+        handler1.assert_has_calls([])
+        handler2.assert_has_calls([ mock.call() ])
+
+        reg_test_fun.unregister_mpv_key_bindings()
+        self.assertNotIn(b('a'), self.m._key_binding_handlers)
+        self.assertNotIn(b('b'), self.m._key_binding_handlers)
+        self.assertIn(b('c'), self.m._key_binding_handlers)
+
 class TestLifecycle(unittest.TestCase):
     def test_create_destroy(self):
         thread_names = lambda: [ t.name for t in threading.enumerate() ]

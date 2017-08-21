@@ -85,16 +85,14 @@ Advanced Usage
     # Option access, in general these require the core to reinitialize
     player['vo'] = 'opengl'
 
-    def my_q_binding(state, key):
-        if state[0] == 'd':
-            print('THERE IS NO ESCAPE')
-    player.register_key_binding('q', my_q_binding)
+    @player.on_key_press('q')
+    def my_q_binding():
+        print('THERE IS NO ESCAPE')
 
-    def my_s_binding(state, key):
-        if state[0] == 'd':
-            pillow_img = player.screenshot_raw()
-            pillow_img.save('screenshot.png')
-    player.register_key_binding('s', my_s_binding)
+    @player.on_key_press('s')
+    def my_s_binding():
+        pillow_img = player.screenshot_raw()
+        pillow_img.save('screenshot.png')
 
     player.play('https://youtu.be/DLzxrzFCyOs')
     player.wait_for_playback()
