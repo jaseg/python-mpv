@@ -81,7 +81,7 @@ Advanced Usage
         print('Now playing at {:.2f}s'.format(value))
 
     player.fullscreen = True
-    player.loop = 'inf'
+    player.loop_playlist = 'inf'
     # Option access, in general these require the core to reinitialize
     player['vo'] = 'opengl'
 
