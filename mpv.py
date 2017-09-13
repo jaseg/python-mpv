@@ -60,7 +60,7 @@ class PropertyUnavailableError(AttributeError):
     pass
 
 class ErrorCode(object):
-    """ For documentation on these, see mpv's libmpv/client.h """
+    """For documentation on these, see mpv's libmpv/client.h."""
     SUCCESS                 = 0
     EVENT_QUEUE_FULL        = -1
     NOMEM                   = -2
@@ -377,7 +377,9 @@ _handle_gl_func('mpv_opengl_cb_uninit_gl',              [],                     
 
 
 def _mpv_coax_proptype(value, proptype=str):
-    """ Intelligently coax the given python value into something that can be understood as a proptype property """
+    """Intelligently coax the given python value into something that can
+    be understood as a proptype property.
+    """
     if type(value) is bytes:
         return value;
     elif type(value) is bool:
@@ -388,17 +390,11 @@ def _mpv_coax_proptype(value, proptype=str):
         raise TypeError('Cannot coax value of type {} into property type {}'.format(type(value), proptype))
 
 def _make_node_str_list(l):
-    """ Take a list of python objects and make a MPV string node array from it.
+    """Take a list of python objects and make a MPV string node array
+    from it.
 
-    As an example, the following  python list:
-
-    .. code:: python
-
-        l = [ "foo", 23, false ]
-
-    will result in the following MPV node object:
-
-    .. code::
+    As an example, the python list ``l = [ "foo", 23, false ]`` will
+    result in the following MPV node object::
 
         struct mpv_node {
             .format = MPV_NODE_ARRAY,
@@ -412,7 +408,6 @@ def _make_node_str_list(l):
                 }
             }
         }
-
     """
     char_ps = [ c_char_p(_mpv_coax_proptype(e, str)) for e in l ]
     node_list = MpvNodeList(
@@ -506,26 +501,33 @@ class _DecoderPropertyProxy(_PropertyProxy):
         setattr(self.mpv, _py_to_mpv(name), value)
 
 class MPV(object):
-    """ See man mpv(1) for the details of the implemented commands. All mpv
-    properties can be accessed as ```my_mpv.some_property``` and all mpv
-    options can be accessed as ```my_mpv['some-option']```.
+    """See man mpv(1) for the details of the implemented commands. All
+    mpv properties can be accessed as ``my_mpv.some_property`` and all
+    mpv options can be accessed as ``my_mpv['some-option']``.
 
-    By default, properties are returned as decoded ```str``` and an error is thrown if the value does not contain valid
-    utf-8. To get a decoded ```str``` if possibly but ```bytes``` instead of an error if not, use
-    ```my_mpv.lazy.some_property```. To always get raw ```bytes```, use ```my_mpv.raw.some_property```.  To access a
-    property's decoded OSD value, use ```my_mpv.osd.some_property```.
+    By default, properties are returned as decoded ``str`` and an error
+    is thrown if the value does not contain valid utf-8. To get a
+    decoded ``str`` if possibly but ``bytes`` instead of an error if
+    not, use ``my_mpv.lazy.some_property``. To always get raw ``bytes``,
+    use ``my_mpv.raw.some_property``.  To access a property's decoded
+    OSD value, use ``my_mpv.osd.some_property``.
 
-    To get API information on an option, use ```my_mpv.option_info('option-name')```. To get API information on a
-    property, use ```my_mpv.properties['property-name']```. Take care to use mpv's dashed-names instead of the
-    underscore_names exposed on the python object.
+    To get API information on an option, use
+    ``my_mpv.option_info('option-name')``. To get API information on a
+    property, use ``my_mpv.properties['property-name']``. Take care to
+    use mpv's dashed-names instead of the underscore_names exposed on
+    the python object.
 
-    To make your program not barf hard the first time its used on a weird file system **always access properties
-    containing file names or file tags through ```MPV.raw```.
+    To make your program not barf hard the first time its used on a
+    weird file system **always** access properties containing file names
+    or file tags through ``MPV.raw``.
     """
     def __init__(self, *extra_mpv_flags, log_handler=None, start_event_thread=True, loglevel=None, **extra_mpv_opts):
-        """ Create an MPV instance.
+        """Create an MPV instance.
 
-        Extra arguments and extra keyword arguments will be passed to mpv as options. """
+        Extra arguments and extra keyword arguments will be passed to
+        mpv as options.
+        """
 
         self.handle = _mpv_create()
         self._event_thread = None
@@ -564,15 +566,16 @@ class MPV(object):
             self._event_thread = None
 
     def wait_for_playback(self):
-        """ Waits until playback of the current title is paused or done """
+        """Waits until playback of the current title is paused or done."""
         with self._playback_cond:
             self._playback_cond.wait()
 
     def wait_for_property(self, name, cond=lambda val: val, level_sensitive=True):
-        """ Waits until ```cond``` evaluates to a truthy value on the named
+        """Waits until ``cond`` evaluates to a truthy value on the named
         property. This can be used to wait for properties such as
-        ```idle_active``` indicating the player is done with regular playback
-        and just idling around """
+        ``idle_active`` indicating the player is done with regular
+        playback and just idling around
+        """
         sema = threading.Semaphore(value=0)
         def observer(name, val):
             if cond(val):
@@ -587,9 +590,10 @@ class MPV(object):
             self.terminate()
 
     def terminate(self):
-        """ Pröperly terminates this player instance. Preferably use this
-        instead of relying on python's garbage collector to cause this to be
-        called from the object's destructor. """
+        """Properly terminates this player instance. Preferably use this
+        instead of relying on python's garbage collector to cause this
+        to be called from the object's destructor.
+        """
         self.handle, handle = None, self.handle
         if threading.current_thread() is self._event_thread:
             # Handle special case to allow event handle to be detached.
@@ -602,17 +606,20 @@ class MPV(object):
                 self._event_thread.join()
 
     def set_loglevel(self, level):
-        """ Set MPV's log level. This adjusts which output will be sent to this
-        object's log handlers. If you just want mpv's regular terminal output,
-        you don't need to adjust this but just need to pass a log handler to
-        the MPV constructur such as ```MPV(log_handler=print)```.
+        """Set MPV's log level. This adjusts which output will be sent
+        to this object's log handlers. If you just want mpv's regular
+        terminal output, you don't need to adjust this but just need to
+        pass a log handler to the MPV constructur such as
+        ``MPV(log_handler=print)``.
 
         Valid log levels are "no", "fatal", "error", "warn", "info", "v"
-        "debug" and "trace". For details see your mpv's client.h header file """
+        "debug" and "trace". For details see your mpv's client.h header
+        file.
+        """
         _mpv_request_log_messages(self._event_handle, level.encode('utf-8'))
 
     def command(self, name, *args):
-        """ Execute a raw command """
+        """Execute a raw command."""
         args = [name.encode('utf-8')] + [ (arg if type(arg) is bytes else str(arg).encode('utf-8'))
                 for arg in args if arg is not None ] + [None]
         _mpv_command(self.handle, (c_char_p*len(args))(*args))
@@ -628,19 +635,19 @@ class MPV(object):
         return rv
 
     def seek(self, amount, reference="relative", precision="default-precise"):
-        """ Mapped mpv seek command, see man mpv(1). """
+        """Mapped mpv seek command, see man mpv(1)."""
         self.command('seek', amount, reference, precision)
 
     def revert_seek(self):
-        """ Mapped mpv revert_seek command, see man mpv(1). """
+        """Mapped mpv revert_seek command, see man mpv(1)."""
         self.command('revert_seek');
 
     def frame_step(self):
-        """ Mapped mpv frame_step command, see man mpv(1). """
+        """Mapped mpv frame_step command, see man mpv(1)."""
         self.command('frame_step')
 
     def frame_back_step(self):
-        """ Mapped mpv frame_back_step command, see man mpv(1). """
+        """Mapped mpv frame_back_step command, see man mpv(1)."""
         self.command('frame_back_step')
 
     def _add_property(self, name, value=1):
@@ -663,15 +670,17 @@ class MPV(object):
         self.command('multiply', name, factor)
 
     def screenshot(self, includes='subtitles', mode='single'):
-        """ Mapped mpv screenshot command, see man mpv(1). """
+        """Mapped mpv screenshot command, see man mpv(1)."""
         self.command('screenshot', includes, mode)
 
     def screenshot_to_file(self, filename, includes='subtitles'):
-        """ Mapped mpv screenshot_to_file command, see man mpv(1). """
+        """Mapped mpv screenshot_to_file command, see man mpv(1)."""
         self.command('screenshot_to_file', filename.encode(fs_enc), includes)
 
     def screenshot_raw(self, includes='subtitles'):
-        """ Mapped mpv screenshot_raw command, see man mpv(1). Returns a pillow Image object."""
+        """Mapped mpv screenshot_raw command, see man mpv(1). Returns a
+        pillow Image object.
+        """
         from PIL import Image
         res = self.node_command('screenshot-raw', includes)
         if res['format'] != 'bgr0':
@@ -682,11 +691,11 @@ class MPV(object):
         return Image.merge('RGB', (r,g,b))
 
     def playlist_next(self, mode='weak'):
-        """ Mapped mpv seek command, see man mpv(1). """
+        """Mapped mpv playlist_next command, see man mpv(1)."""
         self.command('playlist_next', mode)
 
     def playlist_prev(self, mode='weak'):
-        """ Mapped mpv seek command, see man mpv(1). """
+        """Mapped mpv playlist_prev command, see man mpv(1)."""
         self.command('playlist_prev', mode)
 
     @staticmethod
@@ -694,114 +703,119 @@ class MPV(object):
         return ','.join('{}={}'.format(str(key), str(val)) for key, val in options.items())
 
     def loadfile(self, filename, mode='replace', **options):
-        """ Mapped mpv seek command, see man mpv(1). """
+        """Mapped mpv loadfile command, see man mpv(1)."""
         self.command('loadfile', filename.encode(fs_enc), mode, MPV._encode_options(options))
 
     def loadlist(self, playlist, mode='replace'):
-        """ Mapped mpv seek command, see man mpv(1). """
+        """Mapped mpv loadlist command, see man mpv(1)."""
         self.command('loadlist', playlist.encode(fs_enc), mode)
 
     def playlist_clear(self):
-        """ Mapped mpv seek command, see man mpv(1). """
+        """Mapped mpv playlist_clear command, see man mpv(1)."""
         self.command('playlist_clear')
 
     def playlist_remove(self, index='current'):
-        """ Mapped mpv seek command, see man mpv(1). """
+        """Mapped mpv playlist_remove command, see man mpv(1)."""
         self.command('playlist_remove', index)
 
     def playlist_move(self, index1, index2):
-        """ Mapped mpv seek command, see man mpv(1). """
+        """Mapped mpv playlist_move command, see man mpv(1)."""
         self.command('playlist_move', index1, index2)
 
     def run(self, command, *args):
-        """ Mapped mpv seek command, see man mpv(1). """
+        """Mapped mpv run command, see man mpv(1)."""
         self.command('run', command, *args)
 
     def quit(self, code=None):
-        """ Mapped mpv seek command, see man mpv(1). """
+        """Mapped mpv quit command, see man mpv(1)."""
         self.command('quit', code)
 
     def quit_watch_later(self, code=None):
-        """ Mapped mpv seek command, see man mpv(1). """
+        """Mapped mpv quit_watch_later command, see man mpv(1)."""
         self.command('quit_watch_later', code)
 
     def sub_add(self, filename):
-        """ Mapped mpv seek command, see man mpv(1). """
+        """Mapped mpv sub_add command, see man mpv(1)."""
         self.command('sub_add', filename.encode(fs_enc))
 
     def sub_remove(self, sub_id=None):
-        """ Mapped mpv seek command, see man mpv(1). """
+        """Mapped mpv sub_remove command, see man mpv(1)."""
         self.command('sub_remove', sub_id)
 
     def sub_reload(self, sub_id=None):
-        """ Mapped mpv seek command, see man mpv(1). """
+        """Mapped mpv sub_reload command, see man mpv(1)."""
         self.command('sub_reload', sub_id)
 
     def sub_step(self, skip):
-        """ Mapped mpv seek command, see man mpv(1). """
+        """Mapped mpv sub_step command, see man mpv(1)."""
         self.command('sub_step', skip)
 
     def sub_seek(self, skip):
-        """ Mapped mpv seek command, see man mpv(1). """
+        """Mapped mpv sub_seek command, see man mpv(1)."""
         self.command('sub_seek', skip)
 
     def toggle_osd(self):
-        """ Mapped mpv seek command, see man mpv(1). """
+        """Mapped mpv osd command, see man mpv(1)."""
         self.command('osd')
 
     def show_text(self, string, duration='-', level=None):
-        """ Mapped mpv seek command, see man mpv(1). """
+        """Mapped mpv show_text command, see man mpv(1)."""
         self.command('show_text', string, duration, level)
 
     def show_progress(self):
-        """ Mapped mpv seek command, see man mpv(1). """
+        """Mapped mpv show_progress command, see man mpv(1)."""
         self.command('show_progress')
 
     def discnav(self, command):
-        """ Mapped mpv seek command, see man mpv(1). """
+        """Mapped mpv discnav command, see man mpv(1)."""
         self.command('discnav', command)
 
     def write_watch_later_config(self):
-        """ Mapped mpv seek command, see man mpv(1). """
+        """Mapped mpv write_watch_later_config command, see man mpv(1)."""
         self.command('write_watch_later_config')
 
     def overlay_add(self, overlay_id, x, y, file_or_fd, offset, fmt, w, h, stride):
-        """ Mapped mpv seek command, see man mpv(1). """
+        """Mapped mpv overlay_add command, see man mpv(1)."""
         self.command('overlay_add', overlay_id, x, y, file_or_fd, offset, fmt, w, h, stride)
 
     def overlay_remove(self, overlay_id):
-        """ Mapped mpv seek command, see man mpv(1). """
+        """Mapped mpv overlay_remove command, see man mpv(1)."""
         self.command('overlay_remove', overlay_id)
 
     def script_message(self, *args):
-        """ Mapped mpv seek command, see man mpv(1). """
+        """Mapped mpv script_message command, see man mpv(1)."""
         self.command('script_message', *args)
 
     def script_message_to(self, target, *args):
-        """ Mapped mpv seek command, see man mpv(1). """
+        """Mapped mpv script_message_to command, see man mpv(1)."""
         self.command('script_message_to', target, *args)
 
     def observe_property(self, name, handler):
-        """ Register an observer on the named property. An observer is a function that is called with the new property
-        value every time the property's value is changed. The basic function signature is ```fun(property_name,
-        new_value)``` with new_value being the decoded property value as a python object. This function can be used as a
-        function decorator if no handler is given.
+        """Register an observer on the named property. An observer is a
+        function that is called with the new property value every time
+        the property's value is changed. The basic function signature is
+        ``fun(property_name, new_value)`` with new_value being the
+        decoded property value as a python object. This function can be
+        used as a function decorator if no handler is given.
 
-        To uunregister the observer, call either of ```mpv.unobserve_property(name, handler)```,
-        ```mpv.unobserve_all_properties(handler)``` or the handler's ```unregister_mpv_properties``` attribute:
+        To unregister the observer, call either of
+        ``mpv.unobserve_property(name, handler)``,
+        ``mpv.unobserve_all_properties(handler)`` or the handler's
+        ``unregister_mpv_properties`` attribute::
 
-        ```
-        @player.observe_property('volume')
-        def my_handler(new_volume, *):
-            print("It's loud!", volume)
+            @player.observe_property('volume')
+            def my_handler(new_volume, *):
+                print("It's loud!", volume)
 
-        my_handler.unregister_mpv_properties()
-        ``` """
+            my_handler.unregister_mpv_properties()
+        """
         self._property_handlers[name].append(handler)
         _mpv_observe_property(self._event_handle, hash(name)&0xffffffffffffffff, name.encode('utf-8'), MpvFormat.NODE)
 
     def property_observer(self, name):
-        """ Function decorator to register a property observer. See ```MPV.observe_property``` for details. """
+        """Function decorator to register a property observer. See
+        ``MPV.observe_property`` for details.
+        """
         def wrapper(fun):
             self.observe_property(name, fun)
             fun.unobserve_mpv_properties = lambda: self.unobserve_property(name, fun)
@@ -809,44 +823,54 @@ class MPV(object):
         return wrapper
 
     def unobserve_property(self, name, handler):
-        """ Unregister a property observer. This requires both the observed property's name and the handler function
-        that was originally registered as one handler could be registered for several properties. To unregister a
-        handler from *all* observed properties see ```unobserve_all_properties```. """
+        """Unregister a property observer. This requires both the
+        observed property's name and the handler function that was
+        originally registered as one handler could be registered for
+        several properties. To unregister a handler from *all* observed
+        properties see ``unobserve_all_properties``.
+        """
         self._property_handlers[name].remove(handler)
         if not self._property_handlers[name]:
             _mpv_unobserve_property(self._event_handle, hash(name)&0xffffffffffffffff)
 
     def unobserve_all_properties(self, handler):
-        """ Unregister a property observer from *all* observed properties. """
+        """Unregister a property observer from *all* observed
+        properties.
+        """
         for name in self._property_handlers:
             self.unobserve_property(name, handler)
 
     def register_message_handler(self, target, handler=None):
-        """ Register a mpv script message handler. This can be used to communicate with embedded lua scripts. Pass the
-        script message target name this handler should be listening to and the handler function.
+        """Register a mpv script message handler. This can be used to
+        communicate with embedded lua scripts. Pass the script message
+        target name this handler should be listening to and the handler
+        function.
 
-        WARNING: Only one handler can be registered at a time for any given target.
+        WARNING: Only one handler can be registered at a time for any
+        given target.
 
-        To unregister the message handler, call its unregister_mpv_messages function:
+        To unregister the message handler, call its
+        ``unregister_mpv_messages`` function::
 
-        ```
-        player = mpv.MPV()
-        @player.message_handler('foo')
-        def my_handler(some, args):
-            print(args)
+            player = mpv.MPV()
+            @player.message_handler('foo')
+            def my_handler(some, args):
+                print(args)
 
-        my_handler.unregister_mpv_messages()
-        ``` """
+            my_handler.unregister_mpv_messages()
+        """
         self._register_message_handler_internal(target, handler)
 
     def _register_message_handler_internal(self, target, handler):
         self._message_handlers[target] = handler
 
     def unregister_message_handler(self, target_or_handler):
-        """ Unregister a mpv script message handler for the given script message target name.
+        """Unregister a mpv script message handler for the given script
+        message target name.
 
-        You can also call the ```unregister_mpv_messages``` function attribute set on the handler function when it is
-        registered. """
+        You can also call the ``unregister_mpv_messages`` function
+        attribute set on the handler function when it is registered.
+        """
         if isinstance(target_or_handler, str):
             del self._message_handlers[target_or_handler]
         else:
@@ -855,19 +879,20 @@ class MPV(object):
                     del self._message_handlers[key]
 
     def message_handler(self, target):
-        """ Decorator to register a mpv script message handler.
+        """Decorator to register a mpv script message handler.
 
-        WARNING: Only one handler can be registered at a time for any given target.
+        WARNING: Only one handler can be registered at a time for any
+        given target.
 
-        To unregister the message handler, call its unregister_mpv_messages function:
+        To unregister the message handler, call its
+        ``unregister_mpv_messages`` function::
 
-        ```
-        player = mpv.MPV()
-        @player.message_handler('foo')
-        def my_handler(some, args):
-            print(args)
+            player = mpv.MPV()
+            @player.message_handler('foo')
+            def my_handler(some, args):
+                print(args)
 
-        my_handler.unregister_mpv_messages()
+            my_handler.unregister_mpv_messages()
         """
         def register(handler):
             self._register_message_handler_internal(target, handler)
@@ -876,39 +901,41 @@ class MPV(object):
         return register
 
     def register_event_callback(self, callback):
-        """ Register a blanket event callback receiving all event types.
+        """Register a blanket event callback receiving all event types.
 
-        To unregister the event callback, call its unregister_mpv_events function:
+        To unregister the event callback, call its
+        ``unregister_mpv_events`` function::
 
-        ```
-        player = mpv.MPV()
-        @player.event_callback('shutdown')
-        def my_handler(event):
-            print('It ded.')
+            player = mpv.MPV()
+            @player.event_callback('shutdown')
+            def my_handler(event):
+                print('It ded.')
 
-        my_handler.unregister_mpv_events()
+            my_handler.unregister_mpv_events()
         """
         self._event_callbacks.append(callback)
 
     def unregister_event_callback(self, callback):
-        """ Unregiser an event callback. """
+        """Unregiser an event callback."""
         self._event_callbacks.remove(callback)
 
     def event_callback(self, *event_types):
-        """ Function decorator to register a blanket event callback for the given event types. Event types can be given
-        as str (e.g.  'start-file'), integer or MpvEventID object.
+        """Function decorator to register a blanket event callback for
+        the given event types. Event types can be given as str (e.g.
+        'start-file'), integer or MpvEventID object.
 
-        WARNING: Due to the way this is filtering events, this decorator cannot be chained with itself.
+        WARNING: Due to the way this is filtering events, this decorator
+        cannot be chained with itself.
 
-        To unregister the event callback, call its unregister_mpv_events function:
+        To unregister the event callback, call its
+        ``unregister_mpv_events`` function::
 
-        ```
-        player = mpv.MPV()
-        @player.event_callback('shutdown')
-        def my_handler(event):
-            print('It ded.')
+            player = mpv.MPV()
+            @player.event_callback('shutdown')
+            def my_handler(event):
+                print('It ded.')
 
-        my_handler.unregister_mpv_events()
+            my_handler.unregister_mpv_events()
         """
         def register(callback):
             types = [MpvEventID.from_str(t) if isinstance(t, str) else t for t in event_types] or MpvEventID.ANY
@@ -926,26 +953,27 @@ class MPV(object):
         return 'py_kb_{:016x}'.format(hash(callback_or_cmd)&0xffffffffffffffff)
 
     def on_key_press(self, keydef, mode='force'):
-        """ Function decorator to register a simplified key binding. The callback is called whenever the key
-        given is *pressed*.
+        """Function decorator to register a simplified key binding. The
+        callback is called whenever the key given is *pressed*.
 
-        To unregister the callback function, you can call its ```unregister_mpv_key_bindings``` attribute:
+        To unregister the callback function, you can call its
+        ``unregister_mpv_key_bindings`` attribute::
 
-        ```
-        player = mpv.MPV()
-        @player.on_key_press('Q')
-        def binding():
-            print('blep')
+            player = mpv.MPV()
+            @player.on_key_press('Q')
+            def binding():
+                print('blep')
 
-        binding.unregister_mpv_key_bindings()
-        ```
+            binding.unregister_mpv_key_bindings()
 
-        WARNING: For a single keydef only a single callback/command can be registered at the same time. If you register
-        a binding multiple times older bindings will be overwritten and there is a possibility of references leaking. So
-        don't do that.
+        WARNING: For a single keydef only a single callback/command can
+        be registered at the same time. If you register a binding
+        multiple times older bindings will be overwritten and there is a
+        possibility of references leaking. So don't do that.
 
-        The BIG FAT WARNING regarding untrusted keydefs from the key_binding method applies here as well. """
-
+        The BIG FAT WARNING regarding untrusted keydefs from the
+        key_binding method applies here as well.
+        """
         def register(fun):
             @self.key_binding(keydef, mode)
             @wraps(fun)
@@ -956,35 +984,41 @@ class MPV(object):
         return register
 
     def key_binding(self, keydef, mode='force'):
-        """ Function decorator to register a low-level key binding.
+        """Function decorator to register a low-level key binding.
 
-        The callback function signature is ```fun(key_state, key_name)``` where ```key_state``` is either ```'U'``` for
-        "key up" or ```'D'``` for "key down".
+        The callback function signature is ``fun(key_state, key_name)``
+        where ``key_state`` is either ``'U'`` for "key up" or ``'D'``
+        for "key down".
 
-        The keydef format is: ```[Shift+][Ctrl+][Alt+][Meta+]<key>``` where ```<key>``` is either the literal character
-        the key produces (ASCII or Unicode character), or a symbolic name (as printed by ```mpv --input-keylist```)
+        The keydef format is: ``[Shift+][Ctrl+][Alt+][Meta+]<key>``
+        where ``<key>`` is either the literal character the key produces
+        (ASCII or Unicode character), or a symbolic name (as printed by
+        ``mpv --input-keylist``).
 
-        To unregister the callback function, you can call its ```unregister_mpv_key_bindings``` attribute:
+        To unregister the callback function, you can call its
+        ``unregister_mpv_key_bindings`` attribute::
 
-        ```
-        player = mpv.MPV()
-        @player.key_binding('Q')
-        def binding(state, name):
-            print('blep')
+            player = mpv.MPV()
+            @player.key_binding('Q')
+            def binding(state, name):
+                print('blep')
 
-        binding.unregister_mpv_key_bindings()
-        ```
+            binding.unregister_mpv_key_bindings()
 
-        WARNING: For a single keydef only a single callback/command can be registered at the same time. If you register
-        a binding multiple times older bindings will be overwritten and there is a possibility of references leaking. So
-        don't do that.
+        WARNING: For a single keydef only a single callback/command can
+        be registered at the same time. If you register a binding
+        multiple times older bindings will be overwritten and there is a
+        possibility of references leaking. So don't do that.
 
-        BIG FAT WARNING: mpv's key binding mechanism is pretty powerful. This means, you essentially get arbitrary
-        code exectution through key bindings. This interface makes some limited effort to sanitize the keydef given in
-        the first parameter, but YOU SHOULD NOT RELY ON THIS IN FOR SECURITY. If your input comes from config files,
-        this is completely fine--but, if you are about to pass untrusted input into this parameter, better double-check
-        whether this is secure in your case. """
-
+        BIG FAT WARNING: mpv's key binding mechanism is pretty powerful.
+        This means, you essentially get arbitrary code exectution
+        through key bindings. This interface makes some limited effort
+        to sanitize the keydef given in the first parameter, but YOU
+        SHOULD NOT RELY ON THIS IN FOR SECURITY. If your input comes
+        from config files, this is completely fine--but, if you are
+        about to pass untrusted input into this parameter, better
+        double-check whether this is secure in your case.
+        """
         def register(fun):
             fun.mpv_key_bindings = getattr(fun, 'mpv_key_bindings', []) + [keydef]
             def unregister_all():
@@ -997,8 +1031,10 @@ class MPV(object):
         return register
 
     def register_key_binding(self, keydef, callback_or_cmd, mode='force'):
-        """ Register a key binding. This takes an mpv keydef and either a string containing a mpv
-        command or a python callback function. See ```MPV.key_binding``` for details. """
+        """Register a key binding. This takes an mpv keydef and either
+        a string containing a mpv command or a python callback function.
+        See ``MPV.key_binding`` for details.
+        """
         if not re.match(r'(Shift+)?(Ctrl+)?(Alt+)?(Meta+)?(.|\w+)', keydef):
             raise ValueError('Invalid keydef. Expected format: [Shift+][Ctrl+][Alt+][Meta+]<key>\n'
                     '<key> is either the literal character the key produces (ASCII or Unicode character), or a '
@@ -1019,7 +1055,7 @@ class MPV(object):
         self._key_binding_handlers[binding_name](key_state, key_name)
 
     def unregister_key_binding(self, keydef):
-        """ Unregister a key binding by keydef """
+        """Unregister a key binding by keydef."""
         binding_name = MPV._binding_name(keydef)
         self.command('disable-section', binding_name)
         self.command('define-section', binding_name, '')
@@ -1030,17 +1066,18 @@ class MPV(object):
 
     # Convenience functions
     def play(self, filename):
-        """ Play a path or URL (requires ```ytdl``` option to be set) """
+        """Play a path or URL (requires ``ytdl`` option to be set)."""
         self.loadfile(filename)
 
     @property
     def playlist_filenames(self):
-        """ Return all playlist item file names/URLs as a list of strs """
+        """Return all playlist item file names/URLs as a list of strs."""
         return [element['filename'] for element in self.playlist]
 
     def playlist_append(self, filename, **options):
-        """ Append a path or URL to the playlist. This does not start playing the file automatically. To do that, use
-        ```MPV.loadfile(filename, 'append-play')```. """
+        """Append a path or URL to the playlist. This does not start
+        playing the file automatically. To do that, use
+        ``MPV.loadfile(filename, 'append-play')``."""
         self.loadfile(filename, 'append', **options)
 
     # Property accessors
@@ -1085,23 +1122,22 @@ class MPV(object):
 
     # Dict-like option access
     def __getitem__(self, name, file_local=False):
-        """ Get an option value """
+        """Get an option value."""
         prefix = 'file-local-options/' if file_local else 'options/'
         return self._get_property(prefix+name, lazy_decoder)
 
     def __setitem__(self, name, value, file_local=False):
-        """ Set an option value """
+        """Set an option value."""
         prefix = 'file-local-options/' if file_local else 'options/'
         return self._set_property(prefix+name, value)
 
     def __iter__(self):
-        """ Iterate over all option names """
+        """Iterate over all option names."""
         return iter(self.options)
 
     def option_info(self, name):
-        """ Get information on the given option """
+        """Get information on the given option."""
         try:
             return self._get_property('option-info/'+name)
         except AttributeError:
             return None
-
