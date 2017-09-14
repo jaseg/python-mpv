@@ -630,21 +630,21 @@ class MPV(object):
         """Mapped mpv frame_back_step command, see man mpv(1)."""
         self.command('frame_back_step')
 
-    def _add_property(self, name, value=1):
-        """Add the given value to the property. On overflow or underflow, clamp the property to the maximum. If
+    def property_add(self, name, value=1):
+        """Add the given value to the property's value. On overflow or underflow, clamp the property to the maximum. If
         ``value`` is omitted, assume ``1``.
         """
         self.command('add', name, value)
 
-    def _cycle_property(self, name, direction='up'):
+    def property_multiply(self, name, factor):
+        """Multiply the value of a property with a numeric factor."""
+        self.command('multiply', name, factor)
+
+    def cycle(self, name, direction='up'):
         """Cycle the given property. ``up`` and ``down`` set the cycle direction. On overflow, set the property back to
         the minimum, on underflow set it to the maximum. If ``up`` or ``down`` is omitted, assume ``up``.
         """
         self.command('cycle', name, direction)
-
-    def _multiply_property(self, name, factor):
-        """Multiplies the value of a property with the numeric factor."""
-        self.command('multiply', name, factor)
 
     def screenshot(self, includes='subtitles', mode='single'):
         """Mapped mpv screenshot command, see man mpv(1)."""
