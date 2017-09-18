@@ -993,7 +993,7 @@ class MPV(object):
             raise TypeError('register_key_binding expects either an str with an mpv command or a python callable.')
         self.command('enable-section', binding_name, 'allow-hide-cursor+allow-vo-dragging')
 
-    def _handle_key_binding_message(self, binding_name, key_state, key_name):
+    def _handle_key_binding_message(self, binding_name, key_state, key_name=None):
         self._key_binding_handlers[binding_name](key_state, key_name)
 
     def unregister_key_binding(self, keydef):
