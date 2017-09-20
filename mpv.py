@@ -206,7 +206,7 @@ class MpvNode(Structure):
             MpvFormat.FLAG:         lambda v: bool(cast(v, POINTER(c_int)).contents.value),
             MpvFormat.INT64:        lambda v: cast(v, POINTER(c_longlong)).contents.value,
             MpvFormat.DOUBLE:       lambda v: cast(v, POINTER(c_double)).contents.value,
-            MpvFormat.NODE:         lambda v: cast(v, POINTER(MpvNode)).contents.node_value(decoder),
+            MpvFormat.NODE:         lambda v: MpvNode.node_cast_value(v, cast(v, POINTER(MpvNode)).contents.format.value, decoder),
             MpvFormat.NODE_ARRAY:   lambda v: cast(v, POINTER(POINTER(MpvNodeList))).contents.contents.array_value(decoder),
             MpvFormat.NODE_MAP:     lambda v: cast(v, POINTER(POINTER(MpvNodeList))).contents.contents.dict_value(decoder),
             MpvFormat.BYTE_ARRAY:   lambda v: cast(v, POINTER(POINTER(MpvByteArray))).contents.contents.bytes_value(),
