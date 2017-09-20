@@ -508,7 +508,8 @@ class MPV(object):
     underscore_names exposed on the python object.
 
     To make your program not barf hard the first time its used on a weird file system **always** access properties
-    containing file names or file tags through ``MPV.raw``.  """
+    containing file names or file tags through ``MPV.raw``.
+    """
     def __init__(self, *extra_mpv_flags, log_handler=None, start_event_thread=True, loglevel=None, **extra_mpv_opts):
         """Create an MPV instance.
 
@@ -619,15 +620,15 @@ class MPV(object):
         self.command('seek', amount, reference, precision)
 
     def revert_seek(self):
-        """Mapped mpv revert_seek command, see man mpv(1)."""
+        """Mapped mpv revert-seek command, see man mpv(1)."""
         self.command('revert_seek');
 
     def frame_step(self):
-        """Mapped mpv frame_step command, see man mpv(1)."""
+        """Mapped mpv frame-step command, see man mpv(1)."""
         self.command('frame_step')
 
     def frame_back_step(self):
-        """Mapped mpv frame_back_step command, see man mpv(1)."""
+        """Mapped mpv frame-back-step command, see man mpv(1)."""
         self.command('frame_back_step')
 
     def property_add(self, name, value=1):
@@ -651,11 +652,11 @@ class MPV(object):
         self.command('screenshot', includes, mode)
 
     def screenshot_to_file(self, filename, includes='subtitles'):
-        """Mapped mpv screenshot_to_file command, see man mpv(1)."""
+        """Mapped mpv screenshot-to-file command, see man mpv(1)."""
         self.command('screenshot_to_file', filename.encode(fs_enc), includes)
 
     def screenshot_raw(self, includes='subtitles'):
-        """Mapped mpv screenshot_raw command, see man mpv(1). Returns a pillow Image object."""
+        """Mapped mpv screenshot-raw command, see man mpv(1). Returns a pillow Image object."""
         from PIL import Image
         res = self.node_command('screenshot-raw', includes)
         if res['format'] != 'bgr0':
@@ -666,11 +667,11 @@ class MPV(object):
         return Image.merge('RGB', (r,g,b))
 
     def playlist_next(self, mode='weak'):
-        """Mapped mpv playlist_next command, see man mpv(1)."""
+        """Mapped mpv playlist-next command, see man mpv(1)."""
         self.command('playlist_next', mode)
 
     def playlist_prev(self, mode='weak'):
-        """Mapped mpv playlist_prev command, see man mpv(1)."""
+        """Mapped mpv playlist-prev command, see man mpv(1)."""
         self.command('playlist_prev', mode)
 
     @staticmethod
@@ -686,15 +687,15 @@ class MPV(object):
         self.command('loadlist', playlist.encode(fs_enc), mode)
 
     def playlist_clear(self):
-        """Mapped mpv playlist_clear command, see man mpv(1)."""
+        """Mapped mpv playlist-clear command, see man mpv(1)."""
         self.command('playlist_clear')
 
     def playlist_remove(self, index='current'):
-        """Mapped mpv playlist_remove command, see man mpv(1)."""
+        """Mapped mpv playlist-remove command, see man mpv(1)."""
         self.command('playlist_remove', index)
 
     def playlist_move(self, index1, index2):
-        """Mapped mpv playlist_move command, see man mpv(1)."""
+        """Mapped mpv playlist-move command, see man mpv(1)."""
         self.command('playlist_move', index1, index2)
 
     def run(self, command, *args):
@@ -706,27 +707,27 @@ class MPV(object):
         self.command('quit', code)
 
     def quit_watch_later(self, code=None):
-        """Mapped mpv quit_watch_later command, see man mpv(1)."""
+        """Mapped mpv quit-watch-later command, see man mpv(1)."""
         self.command('quit_watch_later', code)
 
     def sub_add(self, filename):
-        """Mapped mpv sub_add command, see man mpv(1)."""
+        """Mapped mpv sub-add command, see man mpv(1)."""
         self.command('sub_add', filename.encode(fs_enc))
 
     def sub_remove(self, sub_id=None):
-        """Mapped mpv sub_remove command, see man mpv(1)."""
+        """Mapped mpv sub-remove command, see man mpv(1)."""
         self.command('sub_remove', sub_id)
 
     def sub_reload(self, sub_id=None):
-        """Mapped mpv sub_reload command, see man mpv(1)."""
+        """Mapped mpv sub-reload command, see man mpv(1)."""
         self.command('sub_reload', sub_id)
 
     def sub_step(self, skip):
-        """Mapped mpv sub_step command, see man mpv(1)."""
+        """Mapped mpv sub-step command, see man mpv(1)."""
         self.command('sub_step', skip)
 
     def sub_seek(self, skip):
-        """Mapped mpv sub_seek command, see man mpv(1)."""
+        """Mapped mpv sub-seek command, see man mpv(1)."""
         self.command('sub_seek', skip)
 
     def toggle_osd(self):
@@ -734,11 +735,11 @@ class MPV(object):
         self.command('osd')
 
     def show_text(self, string, duration='-', level=None):
-        """Mapped mpv show_text command, see man mpv(1)."""
+        """Mapped mpv show-text command, see man mpv(1)."""
         self.command('show_text', string, duration, level)
 
     def show_progress(self):
-        """Mapped mpv show_progress command, see man mpv(1)."""
+        """Mapped mpv show-progress command, see man mpv(1)."""
         self.command('show_progress')
 
     def discnav(self, command):
@@ -746,23 +747,23 @@ class MPV(object):
         self.command('discnav', command)
 
     def write_watch_later_config(self):
-        """Mapped mpv write_watch_later_config command, see man mpv(1)."""
+        """Mapped mpv write-watch-later-config command, see man mpv(1)."""
         self.command('write_watch_later_config')
 
     def overlay_add(self, overlay_id, x, y, file_or_fd, offset, fmt, w, h, stride):
-        """Mapped mpv overlay_add command, see man mpv(1)."""
+        """Mapped mpv overlay-add command, see man mpv(1)."""
         self.command('overlay_add', overlay_id, x, y, file_or_fd, offset, fmt, w, h, stride)
 
     def overlay_remove(self, overlay_id):
-        """Mapped mpv overlay_remove command, see man mpv(1)."""
+        """Mapped mpv overlay-remove command, see man mpv(1)."""
         self.command('overlay_remove', overlay_id)
 
     def script_message(self, *args):
-        """Mapped mpv script_message command, see man mpv(1)."""
+        """Mapped mpv script-message command, see man mpv(1)."""
         self.command('script_message', *args)
 
     def script_message_to(self, target, *args):
-        """Mapped mpv script_message_to command, see man mpv(1)."""
+        """Mapped mpv script-message-to command, see man mpv(1)."""
         self.command('script_message_to', target, *args)
 
     def observe_property(self, name, handler):
