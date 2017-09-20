@@ -647,6 +647,13 @@ class MPV(object):
         """
         self.command('cycle', name, direction)
 
+    def cycle_values(self, name, values, reverse=False):
+        """Mapped mpv cycle-values command, see man mpv(1)."""
+        if reverse:
+            self.command('cycle_values', '!reverse', name, *values)
+        else:
+            self.command('cycle_values', name, *values)
+
     def screenshot(self, includes='subtitles', mode='single'):
         """Mapped mpv screenshot command, see man mpv(1)."""
         self.command('screenshot', includes, mode)
@@ -765,6 +772,10 @@ class MPV(object):
     def script_message_to(self, target, *args):
         """Mapped mpv script-message-to command, see man mpv(1)."""
         self.command('script_message_to', target, *args)
+
+    def ab_loop(self):
+        """Mapped mpv ab-loop command, see man mpv(1)."""
+        self.command('ab_loop')
 
     def observe_property(self, name, handler):
         """Register an observer on the named property. An observer is a function that is called with the new property
