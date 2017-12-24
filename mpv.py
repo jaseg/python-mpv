@@ -191,26 +191,36 @@ class MpvByteArray(Structure):
         return cast(self.data, POINTER(c_char))[:self.size]
 
 class MpvNode(Structure):
-    _fields_ = [('val', c_longlong),
-                ('format', MpvFormat)]
-
     def node_value(self, decoder=identity_decoder):
-        return MpvNode.node_cast_value(byref(c_void_p(self.val)), self.format.value, decoder)
+        return MpvNode.node_cast_value(self.val, self.format.value, decoder)
 
     @staticmethod
     def node_cast_value(v, fmt=MpvFormat.NODE, decoder=identity_decoder):
         return {
             MpvFormat.NONE:         lambda v: None,
-            MpvFormat.STRING:       lambda v: decoder(cast(v, POINTER(c_char_p)).contents.value),
-            MpvFormat.OSD_STRING:   lambda v: cast(v, POINTER(c_char_p)).contents.value.decode('utf-8'),
-            MpvFormat.FLAG:         lambda v: bool(cast(v, POINTER(c_int)).contents.value),
-            MpvFormat.INT64:        lambda v: cast(v, POINTER(c_longlong)).contents.value,
-            MpvFormat.DOUBLE:       lambda v: cast(v, POINTER(c_double)).contents.value,
-            MpvFormat.NODE:         lambda v: cast(v, POINTER(MpvNode)).contents.node_value(decoder),
-            MpvFormat.NODE_ARRAY:   lambda v: cast(v, POINTER(POINTER(MpvNodeList))).contents.contents.array_value(decoder),
-            MpvFormat.NODE_MAP:     lambda v: cast(v, POINTER(POINTER(MpvNodeList))).contents.contents.dict_value(decoder),
-            MpvFormat.BYTE_ARRAY:   lambda v: cast(v, POINTER(POINTER(MpvByteArray))).contents.contents.bytes_value(),
+            MpvFormat.STRING:       lambda v: decoder(v.string),
+            MpvFormat.OSD_STRING:   lambda v: v.string.decode('utf-8'),
+            MpvFormat.FLAG:         lambda v: bool(v.flag),
+            MpvFormat.INT64:        lambda v: v.int64,
+            MpvFormat.DOUBLE:       lambda v: v.double,
+            MpvFormat.NODE:         lambda v: v.node.contents.node_value(decoder) if v.node else None,
+            MpvFormat.NODE_ARRAY:   lambda v: v.list.contents.array_value(decoder) if v.list else None,
+            MpvFormat.NODE_MAP:     lambda v: v.map.contents.dict_value(decoder) if v.map else None,
+            MpvFormat.BYTE_ARRAY:   lambda v: v.byte_array.contents.bytes_value() if v.byte_array else None,
             }[fmt](v)
+
+class MpvNodeUnion(Union):
+    _fields_ = [('string', c_char_p),
+                ('flag', c_int),
+                ('int64', c_int64),
+                ('double', c_double),
+                ('node', POINTER(MpvNode)),
+                ('list', POINTER(MpvNodeList)),
+                ('map', POINTER(MpvNodeList)),
+                ('byte_array', POINTER(MpvByteArray))]
+
+MpvNode._fields_ = [('val', MpvNodeUnion),
+                    ('format', MpvFormat)]
 
 MpvNodeList._fields_ = [('num', c_int),
                         ('values', POINTER(MpvNode)),
@@ -241,7 +251,7 @@ class MpvEvent(Structure):
 class MpvEventProperty(Structure):
     _fields_ = [('name', c_char_p),
                 ('format', MpvFormat),
-                ('data', c_void_p)]
+                ('data', MpvNodeUnion)]
     def as_dict(self, decoder=identity_decoder):
         value = MpvNode.node_cast_value(self.data, self.format.value, decoder)
         return {'name': self.name.decode('utf-8'),
@@ -409,11 +419,11 @@ def _make_node_str_list(l):
         keys=None,
         values=( MpvNode * len(l))( *[ MpvNode(
                 format=MpvFormat.STRING,
-                val=cast(pointer(p), POINTER(c_longlong)).contents) # NOTE: ctypes is kinda crappy here
+                val=MpvNodeUnion(string=p))
             for p in char_ps ]))
     node = MpvNode(
         format=MpvFormat.NODE_ARRAY,
-        val=addressof(node_list))
+        val=MpvNodeUnion(list=pointer(node_list)))
     return char_ps, node_list, node, cast(pointer(node), c_void_p)
 
 
@@ -607,11 +617,10 @@ class MPV(object):
     def node_command(self, name, *args, decoder=strict_decoder):
         _1, _2, _3, pointer = _make_node_str_list([name, *args])
         out = cast(create_string_buffer(sizeof(MpvNode)), POINTER(MpvNode))
-        outptr = out #byref(out)
         ppointer = cast(pointer, POINTER(MpvNode))
-        _mpv_command_node(self.handle, ppointer, outptr)
-        rv = MpvNode.node_cast_value(outptr, MpvFormat.NODE, decoder)
-        _mpv_free_node_contents(outptr)
+        _mpv_command_node(self.handle, ppointer, out)
+        rv = out.contents.node_value(decoder=decoder)
+        _mpv_free_node_contents(out)
         return rv
 
     def seek(self, amount, reference="relative", precision="default-precise"):
@@ -1023,14 +1032,18 @@ class MPV(object):
 
     # Property accessors
     def _get_property(self, name, decoder=strict_decoder, fmt=MpvFormat.NODE):
-        out = cast(create_string_buffer(sizeof(c_void_p)), c_void_p)
-        outptr = byref(out)
+        out = create_string_buffer(sizeof(MpvNode))
         try:
-            cval = _mpv_get_property(self.handle, name.encode('utf-8'), fmt, outptr)
-            rv = MpvNode.node_cast_value(outptr, fmt, decoder)
-            if fmt is MpvFormat.NODE:
-                _mpv_free_node_contents(outptr)
-            return rv
+            cval = _mpv_get_property(self.handle, name.encode('utf-8'), fmt, out)
+
+            if fmt is MpvFormat.OSD_STRING:
+                return cast(out, POINTER(c_char_p)).contents.value.decode('utf-8')
+            elif fmt is MpvFormat.NODE:
+                rv = cast(out, POINTER(MpvNode)).contents.node_value(decoder=decoder)
+                _mpv_free_node_contents(out)
+                return rv
+            else:
+                raise TypeError('_get_property only supports NODE and OSD_STRING formats.')
         except PropertyUnavailableError as ex:
             return None
 
