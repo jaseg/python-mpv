@@ -36,6 +36,19 @@ but functional `py2compat branch`_ providing Python 2 compatibility.
 .. _`issue`: https://github.com/jaseg/python-mpv/issues
 .. _`pull request`: https://github.com/jaseg/python-mpv/pulls
 
+Supported Platforms
+...................
+
+**Linux**, **Windows** and **OSX** all seem to work mostly fine. For some notes on the installation on Windows see
+`this comment`__. Shared library handling is quite bad on windows, so expect some pain there. On OSX there seems to be
+some bug int the event logic. See `issue 36`_ and `issue 61`_ for details. Creating a pyQT window and having mpv draw
+into it seems to be a workaround (about 10loc), but in case you want this fixed please weigh in on the issue tracker
+since right now there is not many OSX users.
+
+.. __: https://github.com/jaseg/python-mpv/issues/60#issuecomment-352719773
+.. _`issue 61`: https://github.com/jaseg/python-mpv/issues/61
+.. _`issue 36`: https://github.com/jaseg/python-mpv/issues/36
+
 Usage
 -----
 
