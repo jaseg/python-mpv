@@ -42,7 +42,7 @@ class TestProperties(MpvTestCase):
         while self.m.core_idle:
             time.sleep(0.05)
         for name in sorted(self.m.property_list):
-            name =  name.replace('-', '_')
+            name = name.replace('-', '_')
             with self.subTest(property_name=name), self.swallow_mpv_errors([
                 mpv.ErrorCode.PROPERTY_UNAVAILABLE,
                 mpv.ErrorCode.PROPERTY_ERROR,
@@ -132,7 +132,6 @@ class TestProperties(MpvTestCase):
     def test_property_decoding_invalid_utf8(self):
         invalid_utf8 = b'foo\xc3\x28bar'
         self.m.alang = invalid_utf8
-        self.assertEqual(self.m.alang, [invalid_utf8])
         self.assertEqual(self.m.raw.alang, [invalid_utf8])
         with self.assertRaises(UnicodeDecodeError):
             self.m.strict.alang
@@ -186,7 +185,7 @@ class ObservePropertyTest(MpvTestCase):
         time.sleep(0.1)
         m.play(TESTVID)
 
-        time.sleep(0.1) #couple frames
+        time.sleep(0.5) #couple frames
         m.unobserve_property('vid', handler)
 
         time.sleep(0.1) #couple frames
@@ -228,7 +227,7 @@ class ObservePropertyTest(MpvTestCase):
         m.mute = True
         m.loop = 'inf'
         self.assertEqual(m.mute, True)
-        self.assertEqual(m.loop, 'inf')
+        self.assertEqual(m.loop, True)
 
         time.sleep(0.05)
         foo.unobserve_mpv_properties()
@@ -240,7 +239,7 @@ class ObservePropertyTest(MpvTestCase):
         m.terminate() # needed for synchronization of event thread
         handler.assert_has_calls([
             mock.call('mute', True),
-            mock.call('loop', 'inf')],
+            mock.call('loop', True)],
             any_order=True)
 
 class KeyBindingTest(MpvTestCase):
@@ -373,7 +372,7 @@ class TestLifecycle(unittest.TestCase):
             mpv.MPV(this_option_does_not_exists=23)
         m = mpv.MPV(osd_level=0, loop='inf', deinterlace=False)
         self.assertEqual(m.osd_level, 0)
-        self.assertEqual(m.loop, 'inf')
+        self.assertEqual(m.loop, True)
         self.assertEqual(m.deinterlace, False)
         m.terminate()
 
@@ -401,7 +400,12 @@ class TestLifecycle(unittest.TestCase):
         m.play(TESTVID)
         m.wait_for_playback()
         m.terminate()
-        handler.assert_any_call('info', 'cplayer', 'Playing: test.webm')
+        for call in handler.mock_calls:
+            _1, (a, b, c), _2 = call
+            if a == 'info' and b == 'cplayer' and c.startswith('Playing: '):
+                break
+        else:
+            self.fail('"Playing: foo..." call not found in log handler calls: '+','.join(repr(call) for call in handler.mock_calls))
 
 
 class RegressionTests(MpvTestCase):
@@ -449,7 +453,7 @@ class RegressionTests(MpvTestCase):
         # events. This is a limitation of the upstream API.
         time.sleep(0.01)
         m.loop = 'inf'
-        self.assertEqual(m.loop, 'inf')
+        self.assertEqual(m.loop, True)
 
         time.sleep(0.02)
         m.unobserve_property('loop', t.t)
@@ -457,7 +461,7 @@ class RegressionTests(MpvTestCase):
         m.loop = False
         m.loop = 'inf'
         m.terminate() # needed for synchronization of event thread
-        handler.assert_has_calls([mock.call('loop', False), mock.call('loop', 'inf')])
+        handler.assert_has_calls([mock.call('loop', False), mock.call('loop', True)])
 
 
 if __name__ == '__main__':
