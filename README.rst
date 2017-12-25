@@ -58,7 +58,6 @@ Usage
     player = mpv.MPV(ytdl=True)
     player.play('https://youtu.be/DOmdB7D-pUU')
 
-
 Threading
 ~~~~~~~~~
 
@@ -75,6 +74,9 @@ All API functions are thread-safe. If one is not, please file an issue on github
 
 Advanced Usage
 ~~~~~~~~~~~~~~
+
+Logging, Properties, Python Key Bindings, Screenshots and youtube-dl
+....................................................................
 
 .. code:: python
 
@@ -112,6 +114,9 @@ Advanced Usage
 
     del player
 
+Playlist handling
+.................
+
 .. code:: python
 
     #!/usr/bin/env python3
@@ -130,7 +135,42 @@ Advanced Usage
         print(player.playlist)
         player.wait_for_playback()
 
-Coding conventions
+PyQT embedding
+..............
+
+.. code:: python
+    
+    #!/usr/bin/env python3
+    import mpv
+    import sys
+
+    from PyQt5.QtWidgets import *
+    from PyQt5.QtCore import *
+
+    class Test(QMainWindow):
+        def __init__(self, parent=None):
+            super().__init__(parent)
+            self.container = QWidget(self)
+            self.setCentralWidget(self.container)
+            self.container.setAttribute(Qt.WA_DontCreateNativeAncestors)
+            self.container.setAttribute(Qt.WA_NativeWindow)
+            player = mpv.MPV(wid=str(int(self.container.winId())),
+                    vo='x11', # You may not need this
+                    log_handler=print,
+                    loglevel='debug')
+            player.play('test.webm')
+
+    app = QApplication(sys.argv)
+
+    # This is necessary since PyQT stomps over the locale settings needed by libmpv.
+    # This needs to happen after importing PyQT before creating the first mpv.MPV instance.
+    import locale
+    locale.setlocale(locale.LC_NUMERIC, 'C')
+    win = Test()
+    win.show()
+    sys.exit(app.exec_())
+
+Coding Conventions
 ------------------
 
 The general aim is `PEP 8`_, with liberal application of the "consistency" section. 120 cells line width. Four spaces.
