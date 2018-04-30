@@ -757,6 +757,7 @@ class MPV(object):
 
     def show_text(self, string, duration='-', level=None):
         """Mapped mpv show_text command, see man mpv(1)."""
+        if duration in ('-', b'-'): duration = self['osd-duration']
         self.command('show_text', string, duration, level)
 
     def show_progress(self):
