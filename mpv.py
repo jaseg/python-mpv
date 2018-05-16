@@ -448,16 +448,17 @@ def _event_generator(handle):
         yield event
 
 
-def _event_loop(event_handle, playback_cond, event_callbacks, message_handlers, property_handlers, log_handler):
+def _event_loop(event_handle, playback_conds, event_callbacks, message_handlers, property_handlers, log_handler):
     for event in _event_generator(event_handle):
         try:
             devent = event.as_dict(decoder=lazy_decoder) # copy data from ctypes
             eid = devent['event_id']
             for callback in event_callbacks:
                 callback(devent)
-            if eid in (MpvEventID.SHUTDOWN, MpvEventID.END_FILE):
-                with playback_cond:
-                    playback_cond.notify_all()
+            if eid in playback_conds:
+                cond = playback_conds[eid]
+                with cond:
+                    cond.notify_all()
             if eid == MpvEventID.PROPERTY_CHANGE:
                 pc = devent['event']
                 name, value, _fmt = pc['name'], pc['value'], pc['format']
@@ -562,8 +563,14 @@ class MPV(object):
         self._message_handlers = {}
         self._key_binding_handlers = {}
         self._playback_cond = threading.Condition()
+        self._playback_conds = {
+            MpvEventID.SHUTDOWN: self._playback_cond,
+            MpvEventID.END_FILE: self._playback_cond,
+            MpvEventID.START_FILE: threading.Condition(),
+            MpvEventID.FILE_LOADED: threading.Condition(),
+        }
         self._event_handle = _mpv_create_client(self.handle, b'py_event_handler')
-        self._loop = partial(_event_loop, self._event_handle, self._playback_cond, self._event_callbacks,
+        self._loop = partial(_event_loop, self._event_handle, self._playback_conds, self._event_callbacks,
                 self._message_handlers, self._property_handlers, log_handler)
         if loglevel is not None or log_handler is not None:
             self.set_loglevel(loglevel or 'terminal-default')
@@ -573,6 +580,15 @@ class MPV(object):
             self._event_thread.start()
         else:
             self._event_thread = None
+
+    def wait_for(self, event_id):
+        if event_id in self._playback_conds:
+            cond = self._playback_conds[event_id]
+            with cond:
+                cond.wait()
+
+    def wait_for_start(self):
+        self.wait_for(MpvEventID.START_FILE)
 
     def wait_for_playback(self):
         """Waits until playback of the current title is paused or done."""
