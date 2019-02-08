@@ -208,6 +208,12 @@ PyGtk embedding
         application = MainClass()
         Gtk.main()
 
+Using OpenGL from PyQT
+......................
+
+Github user cosven_ has managed to `make mpv render into a Qt widget using OpenGL
+<https://gist.github.com/cosven/b313de2acce1b7e15afda263779c0afc>`__ through this python API.
+
 Coding Conventions
 ------------------
 
@@ -217,3 +223,4 @@ No tabs. Probably don't bother making pure-formatting PRs except if you think it
 
 .. _`PEP 8`: https://www.python.org/dev/peps/pep-0008/
 .. _`mpv.py`: https://raw.githubusercontent.com/jaseg/python-mpv/master/mpv.py
+.. _cosven: https://github.com/cosven
