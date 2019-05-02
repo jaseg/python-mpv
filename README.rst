@@ -170,6 +170,50 @@ PyQT embedding
     win.show()
     sys.exit(app.exec_())
 
+PyGtk embedding
+..............
+
+.. code:: python
+    
+    #!/usr/bin/env python3
+    import gi
+
+    import mpv
+
+    gi.require_version('Gtk', '3.0')
+    from gi.repository import Gtk
+
+
+    class MainClass(Gtk.Window):
+
+        def __init__(self):
+            super(MainClass, self).__init__()
+            self.set_default_size(600, 400)
+            self.connect("destroy", self.on_destroy)
+
+            widget = Gtk.Frame()
+            self.add(widget)
+            self.show_all()
+
+            # Must be created >after< the widget is shown, else property 'window' will be None
+            self.mpv = mpv.MPV(wid=str(widget.get_property("window").get_xid()))
+            self.mpv.play("test.webm")
+
+        def on_destroy(self, widget, data=None):
+            self.mpv.terminate()
+            Gtk.main_quit()
+
+
+    if __name__ == '__main__':
+        application = MainClass()
+        Gtk.main()
+
+Using OpenGL from PyQT
+......................
+
+Github user cosven_ has managed to `make mpv render into a Qt widget using OpenGL
+<https://gist.github.com/cosven/b313de2acce1b7e15afda263779c0afc>`__ through this python API.
+
 Coding Conventions
 ------------------
 
@@ -179,3 +223,4 @@ No tabs. Probably don't bother making pure-formatting PRs except if you think it
 
 .. _`PEP 8`: https://www.python.org/dev/peps/pep-0008/
 .. _`mpv.py`: https://raw.githubusercontent.com/jaseg/python-mpv/master/mpv.py
+.. _cosven: https://github.com/cosven

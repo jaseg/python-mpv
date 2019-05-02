@@ -308,7 +308,7 @@ class MpvEventClientMessage(Structure):
 WakeupCallback = CFUNCTYPE(None, c_void_p)
 
 OpenGlCbUpdateFn = CFUNCTYPE(None, c_void_p)
-OpenGlCbGetProcAddrFn = CFUNCTYPE(None, c_void_p, c_char_p)
+OpenGlCbGetProcAddrFn = CFUNCTYPE(c_void_p, c_void_p, c_char_p)
 
 def _handle_func(name, args, restype, errcheck, ctx=MpvHandle):
     func = getattr(backend, name)
@@ -755,7 +755,7 @@ class MPV(object):
         """Mapped mpv osd command, see man mpv(1)."""
         self.command('osd')
 
-    def show_text(self, string, duration='-', level=None):
+    def show_text(self, string, duration='-1', level=None):
         """Mapped mpv show_text command, see man mpv(1)."""
         self.command('show_text', string, duration, level)
 
