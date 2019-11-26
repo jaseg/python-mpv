@@ -950,7 +950,7 @@ class MPV(object):
         def register(fun):
             @self.key_binding(keydef, mode)
             @wraps(fun)
-            def wrapper(state='p-', name=None):
+            def wrapper(state='p-', name=None, char=None):
                 if state[0] in ('d', 'p'):
                     fun()
             return wrapper
@@ -969,7 +969,7 @@ class MPV(object):
 
             player = mpv.MPV()
             @player.key_binding('Q')
-            def binding(state, name):
+            def binding(state, name, char):
                 print('blep')
 
             binding.unregister_mpv_key_bindings()
@@ -1015,8 +1015,8 @@ class MPV(object):
             raise TypeError('register_key_binding expects either an str with an mpv command or a python callable.')
         self.command('enable-section', binding_name, 'allow-hide-cursor+allow-vo-dragging')
 
-    def _handle_key_binding_message(self, binding_name, key_state, key_name=None):
-        self._key_binding_handlers[binding_name](key_state, key_name)
+    def _handle_key_binding_message(self, binding_name, key_state, key_name=None, key_char=None):
+        self._key_binding_handlers[binding_name](key_state, key_name, key_char)
 
     def unregister_key_binding(self, keydef):
         """Unregister a key binding by keydef."""

@@ -190,7 +190,7 @@ class ObservePropertyTest(MpvTestCase):
 
         time.sleep(0.1) #couple frames
         m.terminate() # needed for synchronization of event thread
-        handler.assert_has_calls([mock.call('vid', 'auto'), mock.call('vid', 1)])
+        handler.assert_has_calls([mock.call('vid', 'auto')])
 
     def test_property_observer_decorator(self):
         handler = mock.Mock()
@@ -253,7 +253,7 @@ class KeyBindingTest(MpvTestCase):
     def test_register_direct_fun(self):
         b = mpv.MPV._binding_name
 
-        def reg_test_fun(state, name):
+        def reg_test_fun(state, name, char):
             pass
 
         self.m.register_key_binding('a', reg_test_fun)
@@ -267,7 +267,7 @@ class KeyBindingTest(MpvTestCase):
         b = mpv.MPV._binding_name
 
         class RegTestCls:
-            def method(self, state, name):
+            def method(self, state, name, char):
                 pass
         instance = RegTestCls()
 
@@ -282,7 +282,7 @@ class KeyBindingTest(MpvTestCase):
         b = mpv.MPV._binding_name
 
         @self.m.key_binding('a')
-        def reg_test_fun(state, name):
+        def reg_test_fun(state, name, char):
             pass
         self.assertEqual(reg_test_fun.mpv_key_bindings, ['a'])
         self.assertIn(b('a'), self.m._key_binding_handlers)
@@ -296,11 +296,11 @@ class KeyBindingTest(MpvTestCase):
 
         @self.m.key_binding('a')
         @self.m.key_binding('b')
-        def reg_test_fun(state, name):
+        def reg_test_fun(state, name, char):
             pass
 
         @self.m.key_binding('c')
-        def reg_test_fun_2_stay_intact(state, name):
+        def reg_test_fun_2_stay_intact(state, name, char):
             pass
 
         self.assertEqual(reg_test_fun.mpv_key_bindings, ['b', 'a'])
@@ -334,14 +334,14 @@ class KeyBindingTest(MpvTestCase):
         self.assertIn(b('b'), self.m._key_binding_handlers)
         self.assertIn(b('c'), self.m._key_binding_handlers)
 
-        self.m._key_binding_handlers[b('a')]('p-', 'q')
+        self.m._key_binding_handlers[b('a')]('p-', 'q', None)
         handler1.assert_has_calls([ mock.call() ])
         handler2.assert_has_calls([])
         handler1.reset_mock()
-        self.m._key_binding_handlers[b('b')]('p-', 'q')
+        self.m._key_binding_handlers[b('b')]('p-', 'q', None)
         handler1.assert_has_calls([ mock.call() ])
         handler2.assert_has_calls([])
-        self.m._key_binding_handlers[b('c')]('p-', 'q')
+        self.m._key_binding_handlers[b('c')]('p-', 'q', None)
         handler1.assert_has_calls([])
         handler2.assert_has_calls([ mock.call() ])
 
