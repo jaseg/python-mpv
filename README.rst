@@ -98,7 +98,7 @@ Logging, Properties, Python Key Bindings, Screenshots and youtube-dl
     player.fullscreen = True
     player.loop_playlist = 'inf'
     # Option access, in general these require the core to reinitialize
-    player['vo'] = 'opengl'
+    player['vo'] = 'gpu'
 
     @player.on_key_press('q')
     def my_q_binding():
