@@ -135,6 +135,24 @@ Playlist handling
         print(player.playlist)
         player.wait_for_playback()
 
+Directly feeding mpv data from python
+.....................................
+
+.. code:: python
+
+    #!/usr/bin/env python3
+    import mpv
+
+    player = mpv.MPV()
+    @player.python_stream('foo')
+    def reader():
+        with open('test.webm', 'rb') as f:
+            while True:
+                yield f.read(1024*1024)
+
+    player.play('python://foo')
+    player.wait_for_playback()
+
 PyQT embedding
 ..............
 
