@@ -55,7 +55,7 @@ class TestProperties(MpvTestCase):
         while self.m.core_idle:
             time.sleep(0.05)
         for name in sorted(self.m.property_list):
-            if name in ('external-file','input-ipc-server', 'heartbeat-cmd', 'wid', 'input-file'):
+            if name in ('external-file','input-ipc-server', 'heartbeat-cmd', 'wid', 'input-file', 'input-unix-socket'):
                 continue
             name =  name.replace('-', '_')
             with self.subTest(property_name=name), self.swallow_mpv_errors([

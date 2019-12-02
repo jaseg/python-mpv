@@ -1253,7 +1253,7 @@ class MPV(object):
         """
         def register(cb):
             if name in self._python_streams:
-                raise KeyError(f'Python stream name "{name}" is already registered')
+                raise KeyError('Python stream name "{}" is already registered'.format(name))
             self._python_streams[name] = (cb, size)
             def unregister():
                 if name not in self._python_streams or\
