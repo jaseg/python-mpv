@@ -28,7 +28,10 @@ import re
 import traceback
 
 if os.name == 'nt':
-    backend = CDLL('mpv-1.dll')
+	try:
+		backend = CDLL('mpv-1.dll')
+	except FileNotFoundError:
+		backend = CDLL(os.path.abspath('mpv-1.dll'))
     fs_enc = 'utf-8'
 else:
     import locale
