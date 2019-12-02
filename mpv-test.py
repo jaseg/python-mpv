@@ -7,12 +7,55 @@ from unittest import mock
 import math
 import threading
 from contextlib import contextmanager
+from functools import wraps
 import gc
 import os.path
+import os
+import sys
 import time
+import io
+import platform
+import ctypes
 
 import mpv
 
+
+# stdout magic to suppress useless libmpv warning messages in unittest output
+# See https://eli.thegreenplace.net/2015/redirecting-all-kinds-of-stdout-in-python/
+@contextmanager
+def devnull_libmpv():
+    """ Redirect libmpv stdout into /dev/null while still allowing python to print to stdout as usual """
+    if platform.system() != 'Linux':
+        # This is only a linux-specific convenience function.
+        yield
+        return
+
+    libc = ctypes.CDLL("libc.so.6")
+
+    stderr_fd, stdout_fd = sys.stderr.fileno(), sys.stdout.fileno()
+    sys.stderr.flush()
+    sys.stdout.flush()
+    libc.fflush(None)
+
+    # Preserve a copy so python can continue printing
+    stderr_copy, stdout_copy = os.dup(stderr_fd), os.dup(stdout_fd)
+    sys.stderr = io.TextIOWrapper(open(stderr_copy, 'wb', closefd=False), write_through=True)
+    sys.stdout = io.TextIOWrapper(open(stdout_copy, 'wb', closefd=False))
+    with open(os.devnull, 'w') as devnull:
+        os.dup2(devnull.fileno(), stderr_fd) # closes old stderr
+        os.dup2(devnull.fileno(), stdout_fd) # closes old stdout
+
+    yield
+
+    sys.stderr.flush()
+    sys.stdout.flush()
+    libc.fflush(None)
+    os.dup2(stderr_copy, stderr_fd)
+    os.dup2(stdout_copy, stdout_fd)
+    os.close(stderr_copy)
+    os.close(stdout_copy)
+    sys.stderr = io.TextIOWrapper(open(stderr_fd, 'wb', closefd=False), write_through=True)
+    sys.stdout = io.TextIOWrapper(open(stdout_fd, 'wb', closefd=False))
 
 TESTVID = os.path.join(os.path.dirname(__file__), 'test.webm')
 MPV_ERRORS = [ l(ec) for ec, l in mpv.ErrorCode.EXCEPTION_DICT.items() if l ]
@@ -36,6 +79,7 @@ class TestProperties(MpvTestCase):
             else:
                 raise
 
+    @devnull_libmpv()
     def test_read(self):
         self.m.loop = 'inf'
         self.m.play(TESTVID)
@@ -49,15 +93,18 @@ class TestProperties(MpvTestCase):
                 mpv.ErrorCode.PROPERTY_NOT_FOUND]):
                 getattr(self.m, name)
 
+    @devnull_libmpv()
     def test_write(self):
         self.m.loop = 'inf'
         self.m.play(TESTVID)
         while self.m.core_idle:
             time.sleep(0.05)
+        check_canaries = lambda: os.path.exists('100') or os.path.exists('foo')
         for name in sorted(self.m.property_list):
-            if name in ('external-file','input-ipc-server', 'heartbeat-cmd', 'wid', 'input-file', 'input-unix-socket'):
+            if name in ('external-file', 'heartbeat-cmd', 'wid', 'dump-stats', 'log-file') or name.startswith('input-'):
                 continue
             name =  name.replace('-', '_')
+            old_canaries = check_canaries()
             with self.subTest(property_name=name), self.swallow_mpv_errors([
                     mpv.ErrorCode.PROPERTY_UNAVAILABLE,
                     mpv.ErrorCode.PROPERTY_ERROR,
@@ -80,6 +127,8 @@ class TestProperties(MpvTestCase):
                     setattr(self.m, name, b'bazbazbaz'*1000)
                     setattr(self.m, name, True)
                     setattr(self.m, name, False)
+            if not old_canaries and check_canaries():
+                raise UserWarning('Property test for {} produced files on file system, might not be safe.'.format(name))
 
     def test_property_bounce(self):
         self.m.aid = False
@@ -160,6 +209,7 @@ class TestProperties(MpvTestCase):
             # See comment in test_property_decoding_invalid_utf8
             self.m.osd.alang
 
+    @devnull_libmpv()
     def test_option_read(self):
         self.m.loop = 'inf'
         self.m.play(TESTVID)
@@ -176,6 +226,7 @@ class TestProperties(MpvTestCase):
 
 
 class ObservePropertyTest(MpvTestCase):
+    @devnull_libmpv()
     def test_observe_property(self):
         handler = mock.Mock()
 
@@ -192,6 +243,7 @@ class ObservePropertyTest(MpvTestCase):
         m.terminate() # needed for synchronization of event thread
         handler.assert_has_calls([mock.call('vid', 'auto')])
 
+    @devnull_libmpv()
     def test_property_observer_decorator(self):
         handler = mock.Mock()
 
@@ -351,6 +403,7 @@ class KeyBindingTest(MpvTestCase):
         self.assertIn(b('c'), self.m._key_binding_handlers)
 
 class TestStreams(unittest.TestCase):
+    @devnull_libmpv()
     def test_python_stream(self):
         handler = mock.Mock()
 
