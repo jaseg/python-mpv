@@ -31,7 +31,7 @@ if os.name == 'nt':
 	try:
 		backend = CDLL('mpv-1.dll')
 	except FileNotFoundError:
-		backend = CDLL(os.path.abspath('mpv-1.dll'))
+		backend = CDLL(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mpv-1.dll'))
     fs_enc = 'utf-8'
 else:
     import locale
