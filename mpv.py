@@ -28,10 +28,13 @@ import re
 import traceback
 
 if os.name == 'nt':
-    try:
-        backend = CDLL('mpv-1.dll')
-    except FileNotFoundError:
-        backend = CDLL(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mpv-1.dll'))
+    dll = ctypes.util.find_library('mpv-1.dll')
+    if dll is None:
+        raise OSError('Cannot find mpv-1.dll in your system %PATH%. One way to deal with this is to ship mpv-1.dll '
+                      'with your script and put the directory your script is in into %PATH% before "import mpv": '
+                      'os.environ["PATH"] = os.path.dirname(__file__) + os.pathsep + os.environ["PATH"] '
+                      'If mpv-1.dll is located elsewhere, you can add that path to os.environ["PATH"].')
+    backend = CDLL(dll)
     fs_enc = 'utf-8'
 else:
     import locale
@@ -43,7 +46,7 @@ else:
     sofile = ctypes.util.find_library('mpv')
     if sofile is None:
         raise OSError("Cannot find libmpv in the usual places. Depending on your distro, you may try installing an "
-                "mpv-devel or mpv-libs package. If you have libmpv around but this script can't find it, maybe consult "
+                "mpv-devel or mpv-libs package. If you have libmpv around but this script can't find it, consult "
                 "the documentation for ctypes.util.find_library which this script uses to look up the library "
                 "filename.")
     backend = CDLL(sofile)
