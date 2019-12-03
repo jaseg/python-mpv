@@ -19,16 +19,21 @@ Installation
 Requirements
 ~~~~~~~~~~~~
 
-libmpv (no kidding!)
-....................
+libmpv
+......
 ``libmpv.so`` either locally (in your current working directory) or somewhere in your system library search path. This
 module is somewhat lenient as far as ``libmpv`` versions are concerned but since ``libmpv`` is changing quite frequently
 you'll only get all the newest features when using an up-to-date version of this module. The unit tests for this module
 do some basic automatic version compatibility checks. If you discover anything missing here, please open an `issue`_ or
 submit a `pull request`_ on github.
 
-Python 2.7, 3.5 or 3.6 (officially)
-...................................
+On Windows you can place libmpv anywhere in your ``%PATH%`` (e.g. next to ``python.exe``) or next to this module's
+``mpv.py``.  Before falling back to looking in the mpv module's directory, python-mpv uses the DLL search order built
+into ctypes, which is different to the one Windows uses internally. Consult `this stackoverflow post
+<https://stackoverflow.com/a/23805306>`__ for details.
+
+Python >= 3.5 (officially)
+..........................
 The ``master`` branch officially only supports recent python releases (3.5 onwards), but there is the somewhat outdated
 but functional `py2compat branch`_ providing Python 2 compatibility.
 
