@@ -29,12 +29,13 @@ import traceback
 
 if os.name == 'nt':
     try:
-        backend = CDLL(os.path.abspath(ctypes.util.find_library('mpv-1.dll')))
+        backend = CDLL(ctypes.util.find_library('mpv-1.dll'))
     except TypeError:
         raise OSError("Cannot find mpv-1.dll in your PATH. The best way to deal with this is to "
                       "ship mpv-1.dll with your script and add "
-                      "'os.environ['PATH'] += os.path.dirname(__file__)' before 'import mpv'."
-                      " If mpv-1.dll is located elsewhere, you can add that path to os.environ['PATH'].")
+                      "os.environ['PATH'] = os.path.dirname(__file__) + os.pathsep + os.environ['PATH']"
+                      "before 'import mpv'. If mpv-1.dll is located elsewhere, "
+                      "you can add that path to os.environ['PATH'].")
     fs_enc = 'utf-8'
 else:
     import locale
