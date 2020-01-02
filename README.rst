@@ -237,6 +237,11 @@ Using OpenGL from PyQT
 Github user cosven_ has managed to `make mpv render into a Qt widget using OpenGL
 <https://gist.github.com/cosven/b313de2acce1b7e15afda263779c0afc>`__ through this python API.
 
+Using OpenGL from PyGObject
+......................
+Just like it is possible to render into a Qt widget, it `also is possible to render into a GTK widget
+<https://gist.github.com/trin94/a930f2a13cee1c9fd21cab0393bf4663>`__ through this python API.
+
 Coding Conventions
 ------------------
 
