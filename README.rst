@@ -193,7 +193,7 @@ PyQT embedding
     win.show()
     sys.exit(app.exec_())
 
-PyGtk embedding
+PyGObject embedding
 ..............
 
 .. code:: python
