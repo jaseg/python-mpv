@@ -231,14 +231,21 @@ PyGObject embedding
         application = MainClass()
         Gtk.main()
 
-Using OpenGL from PyQT
-......................
+Using OpenGL from PyGObject via new render context API 
+......................................................
+
+Just like it is possible to render into a GTK widget through X11 windows, it `also is possible to render into a GTK
+widget using OpenGL <https://gist.github.com/jaseg/657e8ecca3267c0d82ec85d40f423caa>`__ through this python API.
+
+Using OpenGL via legacy opengl_cb backend from PyQT
+...................................................
 
 Github user cosven_ has managed to `make mpv render into a Qt widget using OpenGL
 <https://gist.github.com/cosven/b313de2acce1b7e15afda263779c0afc>`__ through this python API.
 
-Using OpenGL from PyGObject
-...........................
+Using OpenGL via legacy opengl_cb backend from PyGObject
+........................................................
+
 Just like it is possible to render into a Qt widget, it `also is possible to render into a GTK widget
 <https://gist.github.com/trin94/a930f2a13cee1c9fd21cab0393bf4663>`__ through this python API.
 
