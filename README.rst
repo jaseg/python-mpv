@@ -158,6 +158,27 @@ Directly feeding mpv data from python
     player.play('python://foo')
     player.wait_for_playback()
 
+Using MPV's built-in GUI
+........................
+
+python-mpv is using mpv via libmpv. libmpv is meant for embedding into other applications and by default disables most
+GUI features such as the OSD or keyboard input. To enable the built-in GUI, use the following options when initializing
+the MPV instance. See `Issue 102`_ for more details
+
+.. _`issue 102`: https://github.com/jaseg/python-mpv/issues/61
+
+.. code:: python
+
+    # Enable the on-screen controller and keyboard shortcuts
+    player = mpv.MPV(input_default_bindings=True, input_vo_keyboard=True, osc=True)
+
+    # Alternative version using the old "floating box" style on-screen controller
+    player = mpv.MPV(player_operation_mode='pseudo-gui',
+                     script_opts='osc-layout=box,osc-seekbarstyle=bar,osc-deadzonesize=0,osc-minmousemove=3',
+                     input_default_bindings=True,
+                     input_vo_keyboard=True,
+                     osc=True)
+
 PyQT embedding
 ..............
 
