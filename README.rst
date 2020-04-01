@@ -62,6 +62,9 @@ Usage
     import mpv
     player = mpv.MPV(ytdl=True)
     player.play('https://youtu.be/DOmdB7D-pUU')
+    player.wait_for_playback()
+
+python-mpv mostly exposes mpv's built-in API to python, adding only some porcelain on top. Most "`input commands <https://mpv.io/manual/master/#list-of-input-commands>`_" are mapped to methods of the MPV class. Check out these methods and their docstrings in `the source <https://github.com/jaseg/python-mpv/blob/master/mpv.py>`__ for things you can do. Additional controls and status information are exposed through `MPV properties <https://mpv.io/manual/master/#properties>`_. These can be accessed like ``player.metadata``, ``player.fullscreen`` and ``player.loop_playlist``.
 
 Threading
 ~~~~~~~~~
