@@ -19,6 +19,8 @@ import ctypes
 
 import mpv
 
+from xvfbwrapper import Xvfb
+
 
 # stdout magic to suppress useless libmpv warning messages in unittest output
 # See https://eli.thegreenplace.net/2015/redirecting-all-kinds-of-stdout-in-python/
@@ -62,10 +64,13 @@ MPV_ERRORS = [ l(ec) for ec, l in mpv.ErrorCode.EXCEPTION_DICT.items() if l ]
 
 class MpvTestCase(unittest.TestCase):
     def setUp(self):
-        self.m = mpv.MPV()
+        self.disp = Xvfb()
+        self.disp.start()
+        self.m = mpv.MPV(vo='x11')
 
     def tearDown(self):
         self.m.terminate()
+        self.disp.stop()
 
 class TestProperties(MpvTestCase):
     @contextmanager
@@ -407,6 +412,8 @@ class TestStreams(unittest.TestCase):
     def test_python_stream(self):
         handler = mock.Mock()
 
+        disp = Xvfb()
+        disp.start()
         m = mpv.MPV()
         m.register_event_callback(handler)
 
@@ -452,6 +459,7 @@ class TestStreams(unittest.TestCase):
         handler.reset_mock()
 
         m.terminate()
+        disp.stop()
 
     def test_custom_stream(self):
         handler = mock.Mock()
@@ -460,6 +468,8 @@ class TestStreams(unittest.TestCase):
         stream_mock.seek = mock.Mock(return_value=0)
         stream_mock.read = mock.Mock(return_value=b'')
 
+        disp = Xvfb()
+        disp.start()
         m = mpv.MPV(video=False)
         m.register_event_callback(handler)
 
@@ -487,6 +497,7 @@ class TestStreams(unittest.TestCase):
         handler.assert_any_call({'reply_userdata': 0, 'error': 0, 'event_id': mpv.MpvEventID.END_FILE, 'event': {'reason': mpv.MpvEventEndFile.ERROR, 'error': mpv.ErrorCode.UNKNOWN_FORMAT}})
 
         m.terminate()
+        disp.stop()
 
 class TestLifecycle(unittest.TestCase):
     def test_create_destroy(self):

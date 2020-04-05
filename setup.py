@@ -13,6 +13,8 @@ setup(
     extras_require = {
         'screenshot_raw': ['Pillow']
         },
+    tests_require = ['xvfbwrapper'],
+    test_suite = 'mpv-test',
     keywords = ['mpv', 'library', 'video', 'audio', 'player', 'display',
         'multimedia'],
     classifiers = [
