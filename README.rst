@@ -285,7 +285,7 @@ PyGObject embedding
         application = MainClass()
         Gtk.main()
 
-Using OpenGL from PyGObject via new render context API 
+Using OpenGL from PyGObject via new render context API
 ......................................................
 
 Just like it is possible to render into a GTK widget through X11 windows, it `also is possible to render into a GTK

@@ -144,7 +144,7 @@ class MpvOpenGLFBO(Structure):
             ('w', c_int),
             ('h', c_int),
             ('internal_format', c_int)]
-    
+
     def __init__(self, w, h, fbo=0, internal_format=0):
         self.w, self.h = w, h
         self.fbo = fbo
@@ -164,7 +164,7 @@ class MpvOpenGLDRMParams(Structure):
         ('connector_id', c_int),
         ('atomic_request_ptr', c_void_p),
         ('render_fd', c_int)]
-        
+
 class MpvOpenGLDRMDrawSurfaceSize(Structure):
     _fields_ = [('width', c_int), ('height', c_int)]
 
