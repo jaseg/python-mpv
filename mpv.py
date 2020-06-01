@@ -34,7 +34,9 @@ if os.name == 'nt':
                       'with your script and put the directory your script is in into %PATH% before "import mpv": '
                       'os.environ["PATH"] = os.path.dirname(__file__) + os.pathsep + os.environ["PATH"] '
                       'If mpv-1.dll is located elsewhere, you can add that path to os.environ["PATH"].')
-    backend = CDLL(dll)
+    # Starting with version 3.8, CPython does not consider the PATH environment
+    # variable any more when resolving DLL paths.
+    backend = CDLL(os.path.abspath(dll))
     fs_enc = 'utf-8'
 else:
     import locale
