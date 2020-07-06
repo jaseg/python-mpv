@@ -17,6 +17,7 @@ setup(
     test_suite = 'mpv-test',
     keywords = ['mpv', 'library', 'video', 'audio', 'player', 'display',
         'multimedia'],
+    python_requires='>=3.5',
     classifiers = [
         'Development Status :: 4 - Beta',
         'Environment :: X11 Applications',
