@@ -161,6 +161,25 @@ Directly feeding mpv data from python
     player.play('python://foo')
     player.wait_for_playback()
 
+Inserting subtitles
+...................
+
+The "core-idle" property tells you whether video is actually playing or not
+(player core is available for further commands)
+
+.. code:: python
+
+    #!/usr/bin/env python3
+    import mpv
+    from operator import not_
+
+    player = mpv.MPV(log_handler=print, input_default_bindings=True, input_vo_keyboard=True)
+    player.play(video)
+    player.wait_for_property('core-idle', not_)
+    player.sub_add(subs)
+    player.wait_for_playback()
+    player.terminate()
+
 Using MPV's built-in GUI
 ........................
 
