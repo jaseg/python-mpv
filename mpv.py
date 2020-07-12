@@ -921,7 +921,7 @@ class MPV(object):
 
     @staticmethod
     def _encode_options(options):
-        return ','.join('{}={}'.format(str(key), str(val)) for key, val in options.items())
+        return ','.join('{}={}'.format(_py_to_mpv(str(key)), str(val)) for key, val in options.items())
 
     def loadfile(self, filename, mode='replace', **options):
         """Mapped mpv loadfile command, see man mpv(1)."""

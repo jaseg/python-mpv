@@ -544,6 +544,8 @@ class TestLifecycle(unittest.TestCase):
 
     def test_log_handler(self):
         handler = mock.Mock()
+        self.disp = Xvfb()
+        self.disp.start()
         m = mpv.MPV(video=False, log_handler=handler)
         m.play(TESTVID)
         m.wait_for_playback()
@@ -554,6 +556,32 @@ class TestLifecycle(unittest.TestCase):
                 break
         else:
             self.fail('"Playing: foo..." call not found in log handler calls: '+','.join(repr(call) for call in handler.mock_calls))
+        self.disp.stop()
+
+
+class CommandTests(MpvTestCase):
+
+    def test_loadfile_with_subtitles(self):
+        handler = mock.Mock()
+        self.m.property_observer('sub-text')(handler)
+
+        self.m.loadfile(TESTVID, sub_file='test.srt')
+
+        self.m.wait_for_playback()
+        handler.assert_any_call('sub-text', 'This is\na subtitle test.')
+        handler.assert_any_call('sub-text', 'This is the second subtitle line.')
+
+    def test_sub_add(self):
+        handler = mock.Mock()
+        self.m.property_observer('sub-text')(handler)
+
+        self.m.loadfile(TESTVID)
+        self.m.wait_for_property('core-idle', lambda x: not x)
+        self.m.sub_add('test.srt')
+
+        self.m.wait_for_playback()
+        handler.assert_any_call('sub-text', 'This is\na subtitle test.')
+        handler.assert_any_call('sub-text', 'This is the second subtitle line.')
 
 
 class RegressionTests(MpvTestCase):
@@ -591,20 +619,19 @@ class RegressionTests(MpvTestCase):
         t =  T()
 
         m.loop = 'inf'
+        time.sleep(0.5)
 
         m.observe_property('loop', t.t)
+        time.sleep(0.5)
 
         m.loop = False
-        self.assertEqual(m.loop, False)
-        # Wait for tick. AFAICT property events are only generated at regular
-        # intervals, and if we change a property too fast we don't get any
-        # events. This is a limitation of the upstream API.
-        time.sleep(0.01)
-        m.loop = 'inf'
-        self.assertEqual(m.loop, True)
+        time.sleep(0.5)
 
-        time.sleep(0.02)
+        m.loop = 'inf'
+        time.sleep(0.5)
+
         m.unobserve_property('loop', t.t)
+        time.sleep(0.5)
 
         m.loop = False
         m.loop = 'inf'
