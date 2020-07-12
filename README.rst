@@ -161,24 +161,35 @@ Directly feeding mpv data from python
     player.play('python://foo')
     player.wait_for_playback()
 
-Inserting subtitles
-...................
+Using external subtitles
+........................
 
-The "core-idle" property tells you whether video is actually playing or not
-(player core is available for further commands)
+The easiest way to load custom subtitles from a file is to pass the ``--sub-file`` option to the ``loadfile`` call:
 
 .. code:: python
 
     #!/usr/bin/env python3
     import mpv
-    from operator import not_
 
-    player = mpv.MPV(log_handler=print, input_default_bindings=True, input_vo_keyboard=True)
-    player.play(video)
-    player.wait_for_property('core-idle', not_)
-    player.sub_add(subs)
+    player = mpv.MPV()
+    player.play('test.webm', sub_file='test.srt')
+
+Note that you can also pass many other options to ``loadfile``. See the mpv docs for details.
+
+If you want to add subtitle files or streams at runtime, you can use the ``sub-add`` command. ``sub-add`` can only be
+called once the player is done loading the file and starts playing. An easy way to wait for this is to wait for the
+``core-idle`` property.
+
+.. code:: python
+
+    #!/usr/bin/env python3
+    import mpv
+
+    player = mpv.MPV()
+    player.play('test.webm')
+    player.wait_for_property('core-idle', lambda idle: not idle)
+    player.sub_add('test.srt')
     player.wait_for_playback()
-    player.terminate()
 
 Using MPV's built-in GUI
 ........................
