@@ -259,18 +259,18 @@ class ObservePropertyTest(MpvTestCase):
         m = self.m
         m.play(TESTVID)
 
-        m.loop = 'inf'
+        m.slang = 'ru'
         m.mute = True
 
         @m.property_observer('mute')
-        @m.property_observer('loop')
+        @m.property_observer('slang')
         def foo(*args, **kwargs):
             handler(*args, **kwargs)
 
         m.mute = False
-        m.loop = False
+        m.slang = 'jp'
         self.assertEqual(m.mute, False)
-        self.assertEqual(m.loop, False)
+        self.assertEqual(m.slang, ['jp'])
 
         # Wait for tick. AFAICT property events are only generated at regular
         # intervals, and if we change a property too fast we don't get any
@@ -281,26 +281,26 @@ class ObservePropertyTest(MpvTestCase):
         # which these properties were previously accessed. Thus, any_order.
         handler.assert_has_calls([
             mock.call('mute', False),
-            mock.call('loop', False)],
+            mock.call('slang', ['jp'])],
             any_order=True)
         handler.reset_mock()
 
         m.mute = True
-        m.loop = 'inf'
+        m.slang = 'ru'
         self.assertEqual(m.mute, True)
-        self.assertEqual(m.loop, True)
+        self.assertEqual(m.slang, ['ru'])
 
         time.sleep(0.05)
         foo.unobserve_mpv_properties()
 
         m.mute = False
-        m.loop = False
+        m.slang = 'jp'
         m.mute = True
-        m.loop = 'inf'
+        m.slang = 'ru'
         m.terminate() # needed for synchronization of event thread
         handler.assert_has_calls([
             mock.call('mute', True),
-            mock.call('loop', True)],
+            mock.call('slang', ['ru'])],
             any_order=True)
 
 class KeyBindingTest(MpvTestCase):
