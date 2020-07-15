@@ -547,20 +547,24 @@ class TestLifecycle(unittest.TestCase):
         m.terminate()
         handler.assert_not_called()
 
+    @devnull_libmpv()
     def test_log_handler(self):
         handler = mock.Mock()
         self.disp = Xvfb()
         self.disp.start()
-        m = mpv.MPV(video=False, log_handler=handler)
+        m = mpv.MPV(log_handler=handler)
         m.play(TESTVID)
+        # Wait for playback to start
+        m.wait_for_property('core-idle', lambda x: not x)
+        m.command("print-text", 'This is a python-mpv test')
         m.wait_for_playback()
         m.terminate()
         for call in handler.mock_calls:
             _1, (a, b, c), _2 = call
-            if a == 'info' and b == 'cplayer' and c.startswith('Playing: '):
+            if a == 'info' and b == 'cplayer' and 'This is a python-mpv test' in c:
                 break
         else:
-            self.fail('"Playing: foo..." call not found in log handler calls: '+','.join(repr(call) for call in handler.mock_calls))
+            self.fail('"Test log entry not found in log handler calls: '+','.join(repr(call) for call in handler.mock_calls))
         self.disp.stop()
 
 
