@@ -622,25 +622,25 @@ class RegressionTests(MpvTestCase):
                 handler(*args, **kw)
         t =  T()
 
-        m.loop = 'inf'
+        m.slang = 'ru'
         time.sleep(0.5)
 
-        m.observe_property('loop', t.t)
+        m.observe_property('slang', t.t)
         time.sleep(0.5)
 
-        m.loop = False
+        m.slang = 'jp'
         time.sleep(0.5)
 
-        m.loop = 'inf'
+        m.slang = 'ru'
         time.sleep(0.5)
 
-        m.unobserve_property('loop', t.t)
+        m.unobserve_property('slang', t.t)
         time.sleep(0.5)
 
-        m.loop = False
-        m.loop = 'inf'
+        m.slang = 'jp'
+        m.slang = 'ru'
         m.terminate() # needed for synchronization of event thread
-        handler.assert_has_calls([mock.call('loop', False), mock.call('loop', True)])
+        handler.assert_has_calls([mock.call('slang', ['jp']), mock.call('slang', ['ru'])])
 
 
 if __name__ == '__main__':
