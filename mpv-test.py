@@ -106,6 +106,10 @@ class TestProperties(MpvTestCase):
             time.sleep(0.05)
         check_canaries = lambda: os.path.exists('100') or os.path.exists('foo')
         for name in sorted(self.m.property_list):
+            # See issue #108 and upstream mpv issues #7919 and #7920.
+            if name in ('demuxer', 'audio-demuxer', 'audio-files'):
+                continue
+            # These may cause files to be created
             if name in ('external-file', 'heartbeat-cmd', 'wid', 'dump-stats', 'log-file') or name.startswith('input-'):
                 continue
             name =  name.replace('-', '_')
