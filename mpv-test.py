@@ -525,7 +525,8 @@ class TestLifecycle(unittest.TestCase):
             mpv.MPV(this_option_does_not_exists=23)
         m = mpv.MPV(osd_level=0, loop='inf', deinterlace=False)
         self.assertEqual(m.osd_level, 0)
-        self.assertEqual(m.loop, True)
+        # For compatibility with mpv master (v0.32.0-585-gfba1c681b8) accept both
+        self.assertIn(m.loop, ['inf', True])
         self.assertEqual(m.deinterlace, False)
         m.terminate()
 
