@@ -640,31 +640,38 @@ def _event_loop(event_handle, playback_cond, event_callbacks, message_handlers, 
             eid = devent['event_id']
             for callback in event_callbacks:
                 callback(devent)
+
             if eid in (MpvEventID.SHUTDOWN, MpvEventID.END_FILE):
                 with playback_cond:
                     playback_cond.notify_all()
+
             if eid == MpvEventID.PROPERTY_CHANGE:
                 pc = devent['event']
                 name, value, _fmt = pc['name'], pc['value'], pc['format']
-
                 for handler in property_handlers[name]:
                     handler(name, value)
+
             if eid == MpvEventID.LOG_MESSAGE and log_handler is not None:
                 ev = devent['event']
                 log_handler(ev['level'], ev['prefix'], ev['text'])
+
             if eid == MpvEventID.CLIENT_MESSAGE:
                 # {'event': {'args': ['key-binding', 'foo', 'u-', 'g']}, 'reply_userdata': 0, 'error': 0, 'event_id': 16}
                 target, *args = devent['event']['args']
                 if target in message_handlers:
                     message_handlers[target](*args)
+
             if eid == MpvEventID.SHUTDOWN:
                 _mpv_detach_destroy(event_handle)
                 return
+
         except Exception as e:
             traceback.print_exc()
 
 _py_to_mpv = lambda name: name.replace('_', '-')
 _mpv_to_py = lambda name: name.replace('-', '_')
+
+_drop_nones = lambda *args: [ arg for arg in args if arg is not None ]
 
 class _Proxy:
     def __init__(self, mpv):
@@ -869,8 +876,8 @@ class MPV(object):
         self.command('revert_seek');
 
     def frame_step(self):
-        """Mapped mpv frame_step command, see man mpv(1)."""
-        self.command('frame_step')
+        """Mapped mpv frame-step command, see man mpv(1)."""
+        self.command('frame-step')
 
     def frame_back_step(self):
         """Mapped mpv frame_back_step command, see man mpv(1)."""
@@ -919,6 +926,10 @@ class MPV(object):
         """Mapped mpv playlist_prev command, see man mpv(1)."""
         self.command('playlist_prev', mode)
 
+    def playlist_play_index(self, idx):
+        """Mapped mpv playlist-play-index command, see man mpv(1)."""
+        self.command('playlist-play-index', idx)
+
     @staticmethod
     def _encode_options(options):
         return ','.join('{}={}'.format(_py_to_mpv(str(key)), str(val)) for key, val in options.items())
@@ -943,6 +954,14 @@ class MPV(object):
         """Mapped mpv playlist_move command, see man mpv(1)."""
         self.command('playlist_move', index1, index2)
 
+    def playlist_shuffle(self):
+        """Mapped mpv playlist-shuffle command, see man mpv(1)."""
+        self.command('playlist-shuffle')
+
+    def playlist_unshuffle(self):
+        """Mapped mpv playlist-unshuffle command, see man mpv(1)."""
+        self.command('playlist-unshuffle')
+
     def run(self, command, *args):
         """Mapped mpv run command, see man mpv(1)."""
         self.command('run', command, *args)
@@ -955,9 +974,40 @@ class MPV(object):
         """Mapped mpv quit_watch_later command, see man mpv(1)."""
         self.command('quit_watch_later', code)
 
-    def sub_add(self, filename):
+    def stop(self, keep_playlist=False):
+        """Mapped mpv stop command, see man mpv(1)."""
+        if keep_playist:
+            self.command('stop', 'keep-playlist')
+        else:
+            self.command('stop')
+
+    def audio_add(self, url, flags='select', title=None, lang=None):
+        """Mapped mpv audio_add command, see man mpv(1)."""
+        self.command('audio_add', url.encode(fs_enc), *_drop_nones(flags, title, lang))
+
+    def audio_remove(self, audio_id=None):
+        """Mapped mpv audio_remove command, see man mpv(1)."""
+        self.command('audio_remove', audio_id)
+
+    def audio_reload(self, audio_id=None):
+        """Mapped mpv audio_reload command, see man mpv(1)."""
+        self.command('audio_reload', audio_id)
+
+    def video_add(self, url, flags='select', title=None, lang=None):
+        """Mapped mpv video_add command, see man mpv(1)."""
+        self.command('video_add', url.encode(fs_enc), *_drop_nones(flags, title, lang))
+
+    def video_remove(self, video_id=None):
+        """Mapped mpv video_remove command, see man mpv(1)."""
+        self.command('video_remove', video_id)
+
+    def video_reload(self, video_id=None):
+        """Mapped mpv video_reload command, see man mpv(1)."""
+        self.command('video_reload', video_id)
+
+    def sub_add(self, url, flags='select', title=None, lang=None):
         """Mapped mpv sub_add command, see man mpv(1)."""
-        self.command('sub_add', filename.encode(fs_enc))
+        self.command('sub_add', url.encode(fs_enc), *_drop_nones(flags, title, lang))
 
     def sub_remove(self, sub_id=None):
         """Mapped mpv sub_remove command, see man mpv(1)."""
@@ -979,17 +1029,59 @@ class MPV(object):
         """Mapped mpv osd command, see man mpv(1)."""
         self.command('osd')
 
+    def print_text(self, text):
+        """Mapped mpv print-text command, see man mpv(1)."""
+        self.command('print-text', text)
+
     def show_text(self, string, duration='-1', level=None):
         """Mapped mpv show_text command, see man mpv(1)."""
         self.command('show_text', string, duration, level)
+
+    def expand_text(self, text):
+        """Mapped mpv expand-text command, see man mpv(1)."""
+        return self.node_command('expand-text', text)
+
+    def expand_path(self, path):
+        """Mapped mpv expand-path command, see man mpv(1)."""
+        return self.node_command('expand-path', path)
 
     def show_progress(self):
         """Mapped mpv show_progress command, see man mpv(1)."""
         self.command('show_progress')
 
+    def rescan_external_files(self, mode='reselect'):
+        """Mapped mpv rescan-external-files command, see man mpv(1)."""
+        self.command('rescan-external-files', mode)
+
     def discnav(self, command):
         """Mapped mpv discnav command, see man mpv(1)."""
         self.command('discnav', command)
+
+    def mouse(x, y, button=None, mode='single'):
+        """Mapped mpv mouse command, see man mpv(1)."""
+        if button is None:
+            self.command('mouse', x, y, mode)
+        else:
+            self.command('mouse', x, y, button, mode)
+
+    def keypress(self, name):
+        """Mapped mpv keypress command, see man mpv(1)."""
+        self.command('keypress', name)
+
+    def keydown(self, name):
+        """Mapped mpv keydown command, see man mpv(1)."""
+        self.command('keydown', name)
+
+    def keyup(self, name=None):
+        """Mapped mpv keyup command, see man mpv(1)."""
+        if name is None:
+            self.command('keyup')
+        else:
+            self.command('keyup', name)
+
+    def keybind(self, name, command):
+        """Mapped mpv keybind command, see man mpv(1)."""
+        self.command('keybind', name, command)
 
     def write_watch_later_config(self):
         """Mapped mpv write_watch_later_config command, see man mpv(1)."""
