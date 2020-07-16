@@ -379,7 +379,7 @@ class KeyBindingTest(MpvTestCase):
     def test_register_simple_decorator_fun_chaining(self):
         self.m.loop = 'inf'
         self.m.play(TESTVID)
-        self.m.wait_for_property('core-idle', lambda idle: not idle)
+        self.m.wait_until_playing()
 
         handler1, handler2 = mock.Mock(), mock.Mock()
 
@@ -397,7 +397,7 @@ class KeyBindingTest(MpvTestCase):
         def keypress_and_sync(key):
             self.m.keypress(key)
             self.m.frame_step()
-            self.m.wait_for_property('pause', lambda paused: paused)
+            self.m.wait_until_playing()
 
         keypress_and_sync('a')
         handler1.assert_has_calls([ mock.call() ])
@@ -569,7 +569,7 @@ class TestLifecycle(unittest.TestCase):
         m = mpv.MPV(log_handler=handler)
         m.play(TESTVID)
         # Wait for playback to start
-        m.wait_for_property('core-idle', lambda x: not x)
+        m.wait_until_playing()
         m.command("print-text", 'This is a python-mpv test')
         m.wait_for_playback()
         m.terminate()
@@ -599,7 +599,7 @@ class CommandTests(MpvTestCase):
         self.m.property_observer('sub-text')(handler)
 
         self.m.loadfile(TESTVID)
-        self.m.wait_for_property('core-idle', lambda x: not x)
+        self.m.wait_until_playing()
         self.m.sub_add('sub_test.srt')
 
         self.m.wait_for_playback()

@@ -886,6 +886,14 @@ class MPV(object):
         with self._playback_cond:
             self._playback_cond.wait()
 
+    def wait_until_paused(self):
+        """Waits until playback of the current title is paused or done."""
+        self.wait_for_property('core-idle')
+
+    def wait_until_playing(self):
+        """Waits until playback of the current title has started."""
+        self.wait_for_property('core-idle', lambda idle: not idle)
+
     def wait_for_property(self, name, cond=lambda val: val, level_sensitive=True):
         """Waits until ``cond`` evaluates to a truthy value on the named property. This can be used to wait for
         properties such as ``idle_active`` indicating the player is done with regular playback and just idling around
