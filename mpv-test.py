@@ -377,7 +377,9 @@ class KeyBindingTest(MpvTestCase):
         self.assertIn(b('c'), self.m._key_binding_handlers)
 
     def test_register_simple_decorator_fun_chaining(self):
-        b = mpv.MPV._binding_name
+        self.m.loop = 'inf'
+        self.m.play(TESTVID)
+        self.m.wait_for_property('core-idle', lambda idle: not idle)
 
         handler1, handler2 = mock.Mock(), mock.Mock()
 
@@ -391,25 +393,37 @@ class KeyBindingTest(MpvTestCase):
             handler2(*args, **kwargs)
 
         self.assertEqual(reg_test_fun.mpv_key_bindings, ['b', 'a'])
-        self.assertIn(b('a'), self.m._key_binding_handlers)
-        self.assertIn(b('b'), self.m._key_binding_handlers)
-        self.assertIn(b('c'), self.m._key_binding_handlers)
 
-        self.m._key_binding_handlers[b('a')]('p-', 'q', None)
+        def keypress_and_sync(key):
+            self.m.keypress(key)
+            self.m.frame_step()
+            self.m.wait_for_property('pause', lambda paused: paused)
+
+        keypress_and_sync('a')
         handler1.assert_has_calls([ mock.call() ])
         handler2.assert_has_calls([])
         handler1.reset_mock()
-        self.m._key_binding_handlers[b('b')]('p-', 'q', None)
+
+        keypress_and_sync('x')
+        keypress_and_sync('X')
+        keypress_and_sync('b')
         handler1.assert_has_calls([ mock.call() ])
         handler2.assert_has_calls([])
-        self.m._key_binding_handlers[b('c')]('p-', 'q', None)
+        handler1.reset_mock()
+
+        keypress_and_sync('c')
+        keypress_and_sync('B')
         handler1.assert_has_calls([])
         handler2.assert_has_calls([ mock.call() ])
+        handler2.reset_mock()
 
         reg_test_fun.unregister_mpv_key_bindings()
-        self.assertNotIn(b('a'), self.m._key_binding_handlers)
-        self.assertNotIn(b('b'), self.m._key_binding_handlers)
-        self.assertIn(b('c'), self.m._key_binding_handlers)
+        keypress_and_sync('a')
+        keypress_and_sync('c')
+        keypress_and_sync('x')
+        keypress_and_sync('A')
+        handler1.assert_has_calls([])
+        handler2.assert_has_calls([ mock.call() ])
 
 class TestStreams(unittest.TestCase):
     @devnull_libmpv()
