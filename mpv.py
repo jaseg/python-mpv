@@ -743,6 +743,80 @@ class GeneratorStream:
         self._read_iter = iter([]) # make next read() call return EOF
         # TODO?
 
+
+class ImageOverlay:
+    def __init__(self, m, overlay_id, img=None, pos=(0, 0)):
+        self.m = m
+        self.overlay_id = overlay_id
+        self.pos = pos
+        self._size = None
+        if img is not None:
+            self.update(img)
+
+    def update(self, img=None, pos=None):
+        from PIL import Image
+        if img is not None:
+            self.img = img
+        img = self.img
+
+        w, h = img.size
+        stride = w*4
+
+        if pos is not None:
+            self.pos = pos
+        x, y = self.pos
+
+        # Pre-multiply alpha channel
+        bg = Image.new('RGBA', (w, h),  (0, 0, 0, 0))
+        out = Image.alpha_composite(bg, img)
+
+        # Copy image to ctypes buffer
+        if img.size != self._size:
+            self._buf = create_string_buffer(w*h*4)
+            self._size = img.size
+
+        self._buf[:] = out.tobytes('raw', 'BGRA')
+        source = '&' + str(addressof(self._buf))
+
+        self.m.overlay_add(self.overlay_id, x, y, source, 0, 'bgra', w, h, stride)
+
+    def remove(self):
+        self.m.remove_overlay(self.overlay_id)
+
+
+class FileOverlay:
+    def __init__(self, m, overlay_id, filename=None, size=None, stride=None, pos=(0,0)):
+        self.m = m
+        self.overlay_id = overlay_id
+        self.pos = pos
+        self.size = size
+        self.stride = stride
+        if filename is not None:
+            self.update(filename)
+
+    def update(self, filename=None, size=None, stride=None, pos=None):
+        if filename is not None:
+            self.filename = filename
+
+        if pos is not None:
+            self.pos = pos
+
+        if size is not None:
+            self.size = size
+
+        if stride is not None:
+            self.stride = stride
+
+        x, y = self.pos
+        w, h = self.size
+        stride = self.stride or 4*w
+
+        self.m.overlay_add(self, self.overlay_id, x, y, self.filename, 0, 'bgra', w, h, stride)
+
+    def remove(self):
+        self.m.remove_overlay(self.overlay_id)
+
+
 class MPV(object):
     """See man mpv(1) for the details of the implemented commands. All mpv properties can be accessed as
     ``my_mpv.some_property`` and all mpv options can be accessed as ``my_mpv['some-option']``.
@@ -796,6 +870,8 @@ class MPV(object):
         self.register_stream_protocol('python', self._python_stream_open)
         self._python_streams = {}
         self._python_stream_catchall = None
+        self.overlay_ids = set()
+        self.overlays = {}
         if loglevel is not None or log_handler is not None:
             self.set_loglevel(loglevel or 'terminal-default')
         if start_event_thread:
@@ -917,6 +993,34 @@ class MPV(object):
         img = Image.frombytes('RGBA', (res['stride']//4, res['h']), res['data'])
         b,g,r,a = img.split()
         return Image.merge('RGB', (r,g,b))
+
+    def allocate_overlay_id(self):
+        free_ids = set(range(64)) - self.overlay_ids
+        if not free_ids:
+            raise IndexError('All overlay IDs are in use')
+        next_id, *_ = sorted(free_ids)
+        self.overlay_ids.add(next_id)
+        return next_id
+
+    def free_overlay_id(self, overlay_id):
+        self.overlay_ids.remove(overlay_id)
+
+    def create_file_overlay(self, filename=None, size=None, stride=None, pos=(0,0)):
+        overlay_id = self.allocate_overlay_id()
+        overlay = FileOverlay(self, overlay_id, filename, size, stride, pos)
+        self.overlays[overlay_id] = overlay
+        return overlay
+
+    def create_image_overlay(self, img=None, pos=(0,0)):
+        overlay_id = self.allocate_overlay_id()
+        overlay = ImageOverlay(self, overlay_id, img, pos)
+        self.overlays[overlay_id] = overlay
+        return overlay
+
+    def remove_overlay(self, overlay_id):
+        self.overlay_remove(overlay_id)
+        self.free_overlay_id(overlay_id)
+        del self.overlays[overlay_id]
 
     def playlist_next(self, mode='weak'):
         """Mapped mpv playlist_next command, see man mpv(1)."""
