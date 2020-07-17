@@ -53,6 +53,9 @@ else:
     fs_enc = sys.getfilesystemencoding()
 
 
+class ShutdownError(SystemError):
+    pass
+
 class MpvHandle(c_void_p):
     pass
 
@@ -633,17 +636,13 @@ def _event_generator(handle):
         yield event
 
 
-def _event_loop(event_handle, playback_cond, event_callbacks, message_handlers, property_handlers, log_handler):
+def _event_loop(event_handle, event_callbacks, message_handlers, property_handlers, log_handler):
     for event in _event_generator(event_handle):
         try:
             devent = event.as_dict(decoder=lazy_decoder) # copy data from ctypes
             eid = devent['event_id']
             for callback in event_callbacks:
                 callback(devent)
-
-            if eid in (MpvEventID.SHUTDOWN, MpvEventID.END_FILE):
-                with playback_cond:
-                    playback_cond.notify_all()
 
             if eid == MpvEventID.PROPERTY_CHANGE:
                 pc = devent['event']
@@ -859,11 +858,11 @@ class MPV(object):
 
         self._event_callbacks = []
         self._property_handlers = collections.defaultdict(lambda: [])
+        self._quit_handlers = set()
         self._message_handlers = {}
         self._key_binding_handlers = {}
-        self._playback_cond = threading.Condition()
         self._event_handle = _mpv_create_client(self.handle, b'py_event_handler')
-        self._loop = partial(_event_loop, self._event_handle, self._playback_cond, self._event_callbacks,
+        self._loop = partial(_event_loop, self._event_handle, self._event_callbacks,
                 self._message_handlers, self._property_handlers, log_handler)
         self._stream_protocol_cbs = {}
         self._stream_protocol_frontends = collections.defaultdict(lambda: {})
@@ -881,14 +880,29 @@ class MPV(object):
         else:
             self._event_thread = None
 
-    def wait_for_playback(self):
-        """Waits until playback of the current title is paused or done."""
-        with self._playback_cond:
-            self._playback_cond.wait()
+        self._core_shutdown = False
+        # This is the first callback in line, so other event callback-based mechanisms can use core_shutdown
+        @self.event_callback('shutdown')
+        def shutdown_event_callback(event):
+            nonlocal self
+            self._core_shutdown = True
+
+    @property
+    def core_shutdown(self):
+        return self._core_shutdown
 
     def wait_until_paused(self):
         """Waits until playback of the current title is paused or done."""
         self.wait_for_property('core-idle')
+
+    def wait_for_playback(self):
+        """Waits until playback of the current title is paused or done.
+
+        NOTE: This function changed from an event-based implementation to a property observer-based implementation in
+        v0.5.0. This may cause different results in certain cases. If you find one such case, for documentation please
+        tell the world in an issue on the github project."""
+        self.wait_until_playing()
+        self.wait_until_paused()
 
     def wait_until_playing(self):
         """Waits until playback of the current title has started."""
@@ -899,12 +913,22 @@ class MPV(object):
         properties such as ``idle_active`` indicating the player is done with regular playback and just idling around
         """
         sema = threading.Semaphore(value=0)
+
         def observer(name, val):
             if cond(val):
                 sema.release()
         self.observe_property(name, observer)
+
+        @self.event_callback('shutdown')
+        def shutdown_handler(event):
+            sema.release()
+
         if not level_sensitive or not cond(getattr(self, name.replace('-', '_'))):
             sema.acquire()
+
+        if self._core_shutdown:
+            raise ShutdownError('libmpv core has been shutdown')
+
         self.unobserve_property(name, observer)
 
     def __del__(self):
@@ -1229,6 +1253,9 @@ class MPV(object):
                 print("It's loud!", volume)
 
             my_handler.unregister_mpv_properties()
+
+        exit_handler is a function taking no arguments that is called when the underlying mpv handle is terminated (e.g.
+        from calling MPV.terminate() or issuing a "quit" input command).
         """
         self._property_handlers[name].append(handler)
         _mpv_observe_property(self._event_handle, hash(name)&0xffffffffffffffff, name.encode('utf-8'), MpvFormat.NODE)
