@@ -395,33 +395,32 @@ class KeyBindingTest(MpvTestCase):
         self.assertEqual(reg_test_fun.mpv_key_bindings, ['b', 'a'])
 
         def keypress_and_sync(key):
-            self.m.keypress(key)
-            self.m.frame_step()
-            self.m.wait_until_playing()
+            with self.m.prepare_and_wait_for_event('client_message'):
+                self.m.keypress(key)
 
         keypress_and_sync('a')
         handler1.assert_has_calls([ mock.call() ])
         handler2.assert_has_calls([])
         handler1.reset_mock()
 
-        keypress_and_sync('x')
-        keypress_and_sync('X')
+        self.m.keypress('x')
+        self.m.keypress('X')
         keypress_and_sync('b')
         handler1.assert_has_calls([ mock.call() ])
         handler2.assert_has_calls([])
         handler1.reset_mock()
 
         keypress_and_sync('c')
-        keypress_and_sync('B')
+        self.m.keypress('B')
         handler1.assert_has_calls([])
         handler2.assert_has_calls([ mock.call() ])
         handler2.reset_mock()
 
         reg_test_fun.unregister_mpv_key_bindings()
-        keypress_and_sync('a')
+        self.m.keypress('a')
         keypress_and_sync('c')
-        keypress_and_sync('x')
-        keypress_and_sync('A')
+        self.m.keypress('x')
+        self.m.keypress('A')
         handler1.assert_has_calls([])
         handler2.assert_has_calls([ mock.call() ])
 
