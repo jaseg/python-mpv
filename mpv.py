@@ -891,6 +891,8 @@ class MPV(object):
 
     @property
     def core_shutdown(self):
+        """Property indicating whether the core has been shut down. Possible causes for this are e.g. the `quit` command
+        or a user closing the mpv window."""
         return self._core_shutdown
 
     def wait_until_paused(self):
@@ -935,13 +937,26 @@ class MPV(object):
         self.unobserve_property(name, observer)
 
     def wait_for_event(self, *event_types, cond=lambda evt: True):
+        """Waits for the indicated event(s). If cond is given, waits until cond(event) is true. Raises a ShutdownError
+        if the core is shutdown while waiting. This also happens when 'shutdown' is in event_types.
+        """
         with self.prepare_and_wait_for_event(*event_types, cond=cond):
             pass
 
     @contextmanager
     def prepare_and_wait_for_event(self, *event_types, cond=lambda evt: True):
-        """Waits for the indicated event(s). If cond is given, waits until cond(event) is true. Raises a ShutdownError
-        if the core is shutdown while waiting. This also happens when 'shutdown' is in event_types.
+        """Context manager that waits for the indicated event(s) like wait_for_event after running. If cond is given,
+        waits until cond(event) is true. Raises a ShutdownError if the core is shutdown while waiting. This also happens
+        when 'shutdown' is in event_types.
+
+        Compared to wait_for_event this handles the case where a thread waits for an event it itself causes in a
+        thread-safe way. An example from the testsuite is:
+
+        with self.m.prepare_and_wait_for_event('client_message'):
+            self.m.keypress(key)
+
+        Using just wait_for_event it would be impossible to ensure the event is caught since it may already have been
+        handled in the interval between keypress(...) running and a subsequent wait_for_event(...) call.
         """
         sema = threading.Semaphore(value=0)
 
