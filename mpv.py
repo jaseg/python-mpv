@@ -809,6 +809,7 @@ class MPV(object):
 
         self.handle = _mpv_create()
         self._event_thread = None
+        self._core_shutdown = False
 
         _mpv_set_option_string(self.handle, b'audio-display', b'no')
         istr = lambda o: ('yes' if o else 'no') if type(o) is bool else str(o)
@@ -849,8 +850,6 @@ class MPV(object):
             self._event_thread.start()
         else:
             self._event_thread = None
-
-        self._core_shutdown = False
 
     def _loop(self):
         for event in _event_generator(self._event_handle):
@@ -894,6 +893,12 @@ class MPV(object):
         """Property indicating whether the core has been shut down. Possible causes for this are e.g. the `quit` command
         or a user closing the mpv window."""
         return self._core_shutdown
+
+    def check_core_alive(self):
+        """ This method can be used as a sanity check to tests whether the core is still alive at the time it is
+        called."""
+        if self._core_shutdown:
+            raise ShutdownError('libmpv core has been shutdown')
 
     def wait_until_paused(self):
         """Waits until playback of the current title is paused or done. Raises a ShutdownError if the core is shutdown while
@@ -940,8 +945,7 @@ class MPV(object):
         if not level_sensitive or not cond(getattr(self, name.replace('-', '_'))):
             sema.acquire()
 
-        if self._core_shutdown:
-            raise ShutdownError('libmpv core has been shutdown')
+        self.check_core_alive()
 
         shutdown_handler.unregister_mpv_events()
         self.unobserve_property(name, observer)
@@ -982,8 +986,7 @@ class MPV(object):
         yield
         sema.acquire()
 
-        if self._core_shutdown:
-            raise ShutdownError('libmpv core has been shutdown')
+        self.check_core_alive()
 
         shutdown_handler.unregister_mpv_events()
         target_handler.unregister_mpv_events()
@@ -1427,8 +1430,7 @@ class MPV(object):
         """
         def register(callback):
             with self._event_handler_lock:
-                if self._core_shutdown:
-                    raise ShutdownError('libmpv core has been shutdown')
+                self.check_core_alive()
                 types = [MpvEventID.from_str(t) if isinstance(t, str) else t for t in event_types] or MpvEventID.ANY
                 @wraps(callback)
                 def wrapper(event, *args, **kwargs):
@@ -1732,6 +1734,7 @@ class MPV(object):
 
     # Property accessors
     def _get_property(self, name, decoder=strict_decoder, fmt=MpvFormat.NODE):
+        self.check_core_alive()
         out = create_string_buffer(sizeof(MpvNode))
         try:
             cval = _mpv_get_property(self.handle, name.encode('utf-8'), fmt, out)
@@ -1748,6 +1751,7 @@ class MPV(object):
             return None
 
     def _set_property(self, name, value):
+        self.check_core_alive()
         ename = name.encode('utf-8')
         if isinstance(value, (list, set, dict)):
             _1, _2, _3, pointer = _make_node_str_list(value)
