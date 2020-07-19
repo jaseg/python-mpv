@@ -924,6 +924,17 @@ class MPV(object):
         with self.prepare_and_wait_for_property(name, cond, level_sensitive):
             pass
 
+    def wait_for_shutdown(self):
+        '''Wait for core to shutdown (e.g. through quit() or terminate()).'''
+        sema = threading.Semaphore(value=0)
+
+        @self.event_callback('shutdown')
+        def shutdown_handler(event):
+            sema.release()
+
+        sema.acquire()
+        shutdown_handler.unregister_mpv_events()
+
     @contextmanager
     def prepare_and_wait_for_property(self, name, cond=lambda val: val, level_sensitive=True):
         """Context manager that waits until ``cond`` evaluates to a truthy value on the named property. See
