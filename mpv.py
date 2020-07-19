@@ -916,6 +916,15 @@ class MPV(object):
         properties such as ``idle_active`` indicating the player is done with regular playback and just idling around.
         Raises a ShutdownError when the core is shutdown while waiting.
         """
+        with self.prepare_and_wait_for_property(name, cond, level_sensitive):
+            pass
+
+    @contextmanager
+    def prepare_and_wait_for_property(self, name, cond=lambda val: val, level_sensitive=True):
+        """Context manager that waits until ``cond`` evaluates to a truthy value on the named property. See
+        prepare_and_wait_for_event for usage.
+        Raises a ShutdownError when the core is shutdown while waiting.
+        """
         sema = threading.Semaphore(value=0)
 
         def observer(name, val):
@@ -927,6 +936,7 @@ class MPV(object):
         def shutdown_handler(event):
             sema.release()
 
+        yield
         if not level_sensitive or not cond(getattr(self, name.replace('-', '_'))):
             sema.acquire()
 
