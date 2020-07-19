@@ -561,6 +561,93 @@ class TestLifecycle(unittest.TestCase):
         handler.assert_not_called()
 
     @devnull_libmpv()
+    def test_wait_for_property_negative(self):
+        self.disp = Xvfb()
+        self.disp.start()
+        m = mpv.MPV()
+        m.play(TESTVID)
+        def run():
+            nonlocal self
+            try:
+                m.wait_for_property('mute')
+                self.fail()
+            except mpv.ShutdownError:
+                pass
+        t = threading.Thread(target=run, daemon=True)
+        t.start()
+        time.sleep(1)
+        m.terminate()
+        t.join()
+        self.disp.stop()
+
+    @devnull_libmpv()
+    def test_wait_for_property_positive(self):
+        self.disp = Xvfb()
+        self.disp.start()
+        handler = mock.Mock()
+        m = mpv.MPV()
+        m.play(TESTVID)
+        def run():
+            nonlocal self
+            m.wait_for_property('mute')
+            handler()
+        t = threading.Thread(target=run, daemon=True)
+        t.start()
+        m.wait_until_playing()
+        m.mute = True
+        t.join()
+        m.terminate()
+        handler.assert_called()
+        self.disp.stop()
+
+    @devnull_libmpv()
+    def test_wait_for_event(self):
+        self.disp = Xvfb()
+        self.disp.start()
+        handler = mock.Mock()
+        m = mpv.MPV()
+        m.play(TESTVID)
+        def run():
+            nonlocal self
+            try:
+                m.wait_for_event('seek')
+                self.fail()
+            except mpv.ShutdownError:
+                pass
+        t = threading.Thread(target=run, daemon=True)
+        t.start()
+        time.sleep(1)
+        m.terminate()
+        t.join()
+        self.disp.stop()
+
+    @devnull_libmpv()
+    def test_wait_for_property_shutdown(self):
+        self.disp = Xvfb()
+        self.disp.start()
+        handler = mock.Mock()
+        m = mpv.MPV()
+        m.play(TESTVID)
+        with self.assertRaises(mpv.ShutdownError):
+            # level_sensitive=false needed to prevent get_property on dead
+            # handle
+            with m.prepare_and_wait_for_property('mute', level_sensitive=False):
+                m.terminate()
+        self.disp.stop()
+
+    @devnull_libmpv()
+    def test_wait_for_event_shutdown(self):
+        self.disp = Xvfb()
+        self.disp.start()
+        handler = mock.Mock()
+        m = mpv.MPV()
+        m.play(TESTVID)
+        with self.assertRaises(mpv.ShutdownError):
+            with m.prepare_and_wait_for_event('seek'):
+                m.terminate()
+        self.disp.stop()
+
+    @devnull_libmpv()
     def test_log_handler(self):
         handler = mock.Mock()
         self.disp = Xvfb()
