@@ -1009,13 +1009,16 @@ class MPV(object):
     def terminate(self):
         """Properly terminates this player instance. Preferably use this instead of relying on python's garbage
         collector to cause this to be called from the object's destructor.
+
+        This method will detach the main libmpv handle and wait for mpv to shut down and the event thread to finish.
         """
         self.handle, handle = None, self.handle
         if threading.current_thread() is self._event_thread:
-            # Handle special case to allow event handle to be detached.
-            # This is necessary since otherwise the event thread would deadlock itself.
-            grim_reaper = threading.Thread(target=lambda: _mpv_terminate_destroy(handle))
-            grim_reaper.start()
+            raise UserWarning('terminate() should not be called from event thread (e.g. from a callback function). If '
+                    'you want to terminate mpv from here, please call quit() instead, then sync the main thread '
+                    'against the event thread using e.g. wait_for_shutdown(), then terminate() from the main thread. '
+                    'This call has been transformed into a call to quit().')
+            self.quit()
         else:
             _mpv_terminate_destroy(handle)
             if self._event_thread:
