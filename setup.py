@@ -14,7 +14,7 @@ setup(
         'screenshot_raw': ['Pillow']
         },
     tests_require = ['xvfbwrapper'],
-    test_suite = 'mpv-test',
+    test_suite = 'tests',
     keywords = ['mpv', 'library', 'video', 'audio', 'player', 'display',
         'multimedia'],
     python_requires='>=3.5',
