@@ -60,6 +60,7 @@ def devnull_libmpv():
     sys.stdout = io.TextIOWrapper(open(stdout_fd, 'wb', closefd=False))
 
 TESTVID = os.path.join(os.path.dirname(__file__), 'test.webm')
+TESTSRT = os.path.join(os.path.dirname(__file__), 'sub_test.srt')
 MPV_ERRORS = [ l(ec) for ec, l in mpv.ErrorCode.EXCEPTION_DICT.items() if l ]
 
 class MpvTestCase(unittest.TestCase):
@@ -674,7 +675,7 @@ class CommandTests(MpvTestCase):
         handler = mock.Mock()
         self.m.property_observer('sub-text')(handler)
 
-        self.m.loadfile(TESTVID, sub_file='tests/sub_test.srt')
+        self.m.loadfile(TESTVID, sub_file=TESTSRT)
 
         self.m.wait_for_playback()
         handler.assert_any_call('sub-text', 'This is\na subtitle test.')
@@ -686,7 +687,7 @@ class CommandTests(MpvTestCase):
 
         self.m.loadfile(TESTVID)
         self.m.wait_until_playing()
-        self.m.sub_add('tests/sub_test.srt')
+        self.m.sub_add(TESTSRT)
 
         self.m.wait_for_playback()
         handler.assert_any_call('sub-text', 'This is\na subtitle test.')
