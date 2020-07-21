@@ -674,7 +674,7 @@ class CommandTests(MpvTestCase):
         handler = mock.Mock()
         self.m.property_observer('sub-text')(handler)
 
-        self.m.loadfile(TESTVID, sub_file='sub_test.srt')
+        self.m.loadfile(TESTVID, sub_file='tests/sub_test.srt')
 
         self.m.wait_for_playback()
         handler.assert_any_call('sub-text', 'This is\na subtitle test.')
@@ -686,7 +686,7 @@ class CommandTests(MpvTestCase):
 
         self.m.loadfile(TESTVID)
         self.m.wait_until_playing()
-        self.m.sub_add('sub_test.srt')
+        self.m.sub_add('tests/sub_test.srt')
 
         self.m.wait_for_playback()
         handler.assert_any_call('sub-text', 'This is\na subtitle test.')
