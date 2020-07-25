@@ -1186,7 +1186,7 @@ class MPV(object):
 
     def stop(self, keep_playlist=False):
         """Mapped mpv stop command, see man mpv(1)."""
-        if keep_playist:
+        if keep_playlist:
             self.command('stop', 'keep-playlist')
         else:
             self.command('stop')
