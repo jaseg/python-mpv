@@ -123,8 +123,12 @@ class ErrorCode(object):
             -20:    lambda *a: RuntimeError('Unspecified error') }
 
     @staticmethod
+    def human_readable(ec):
+        return _mpv_error_string(ec).decode('utf-8')
+
+    @staticmethod
     def default_error_handler(ec, *args):
-        return ValueError(_mpv_error_string(ec).decode('utf-8'), ec, *args)
+        return ValueError(ErrorCode.human_readable(ec), ec, *args)
 
     @classmethod
     def raise_for_ec(kls, ec, func, *args):
@@ -906,12 +910,9 @@ class MPV(object):
 
                 if eid == MpvEventID.COMMAND_REPLY:
                     key = devent['reply_userdata']
-                    err = devent['error']
                     callback = self._event_async_callbacks.pop(key, None)
                     if callback:
-                        callback(err, devent['event']['result'])
-                    elif err:
-                        warn('Error while executing asynchronous command')
+                        callback(devent['error'], devent['event']['result'])
 
                 if eid == MpvEventID.SHUTDOWN:
                     _mpv_destroy(self._event_handle)
@@ -1106,11 +1107,23 @@ class MPV(object):
 
     def command_async(self, name, *args, callback=None):
         """Same as mpv_command, but run the command asynchronously. Once the command ran, the callback will be invoked,
-        if provided. The first argument of the callback will be a boolean value. It will be set to True, if there was an
-        error, False else. The second argument of the callback depends on the command.
+        if provided. The first argument of the callback will be an integer value. If no error occurred this value will
+        be >= 0. In case of an error this will be a mpv_error value (see mpv.ErrorCode for more information).
+        The second argument will be the return value of the command or None if the command does not return a value.
+
+        Callback example::
+
+            def callback(error, result):
+                try:
+                    mpv.ErrorCode.raise_for_ec(error)
+                    ... # handle normal case
+                except MemoryError as e:  # for example
+                    ... # handle MemoryError
+                except Exception as e:
+                    ... # catch-all: handle all other exceptions
         """
+        key = self._register_async_callback(name, args, callback)
         args = _create_null_term_cmd_arg_array(name, args)
-        key = self._register_async_callback(callback)
         _mpv_command_async(self._event_handle, key, args)
 
     def node_command(self, name, *args, decoder=strict_decoder):
@@ -1890,7 +1903,12 @@ class MPV(object):
         except AttributeError:
             return None
 
-    def _register_async_callback(self, callback):
+    def _register_async_callback(self, name, args, callback):
+        if callback is None:
+            def callback(err, _result):
+                if err < 0:
+                    warn('Error executing async command \'{} {}\': \'{}\''
+                         .format(name, ' '.join(repr(arg) for arg in args), ErrorCode.human_readable(err)))
         with self._event_async_callback_counter_lock:
             key = self._event_async_callback_counter = (self._event_async_callback_counter + 1) % MPV._UINT_64_MAX
         self._event_async_callbacks[key] = callback
