@@ -342,6 +342,12 @@ Using OpenGL via legacy opengl_cb backend from PyGObject
 Just like it is possible to render into a Qt widget, it `also is possible to render into a GTK widget
 <https://gist.github.com/trin94/a930f2a13cee1c9fd21cab0393bf4663>`__ through this python API.
 
+Using OpenGL from PyQt5/QML via new render context API
+......................................................
+
+Robozman_ has mangaed to `make mpv render into a PyQt5/QML widget using OpenGL
+<https://gitlab.com/robozman/python-mpv-qml-example>`__ through this python API.
+
 Coding Conventions
 ------------------
 
@@ -352,3 +358,4 @@ No tabs. Probably don't bother making pure-formatting PRs except if you think it
 .. _`PEP 8`: https://www.python.org/dev/peps/pep-0008/
 .. _`mpv.py`: https://raw.githubusercontent.com/jaseg/python-mpv/master/mpv.py
 .. _cosven: https://github.com/cosven
+.. _Robozman: https://gitlab.com/robozman
