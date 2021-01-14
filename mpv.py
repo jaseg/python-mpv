@@ -744,7 +744,7 @@ class ImageOverlay:
             self._buf = create_string_buffer(w*h*4)
             self._size = img.size
 
-        self._buf[:] = out.tobytes('raw', 'BGRA')
+        ctypes.memmove(self._buf, out.tobytes('raw', 'BGRA'), w*h*4)
         source = '&' + str(addressof(self._buf))
 
         self.m.overlay_add(self.overlay_id, x, y, source, 0, 'bgra', w, h, stride)
