@@ -348,6 +348,11 @@ Using OpenGL from PyQt5/QML via new render context API
 Robozman_ has mangaed to `make mpv render into a PyQt5/QML widget using OpenGL
 <https://gitlab.com/robozman/python-mpv-qml-example>`__ through this python API.
 
+Using mpv inside imgui inside OpenGL via GLFW
+.............................................
+
+dfaker_ has written a demo (`link <https://github.com/dfaker/imgui_glfw_pythonmpv_demo/blob/main/main.py>`__) that uses mpv to render video into an `imgui <https://github.com/ocornut/imgui>`__ UI running on an OpenGL context inside `GLFW <https://www.glfw.org/>`__. Check out their demo to see how to integrate with imgui/OpenGL and how to access properties and manage the lifecycle of an MPV instance.
+
 Coding Conventions
 ------------------
 
@@ -359,3 +364,4 @@ No tabs. Probably don't bother making pure-formatting PRs except if you think it
 .. _`mpv.py`: https://raw.githubusercontent.com/jaseg/python-mpv/master/mpv.py
 .. _cosven: https://github.com/cosven
 .. _Robozman: https://gitlab.com/robozman
+.. _dfaker: https://github.com/dfaker
