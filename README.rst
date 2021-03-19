@@ -321,6 +321,11 @@ PyGObject embedding
 
 
     if __name__ == '__main__':
+        # This is necessary since like Qt, Gtk stomps over the locale settings needed by libmpv.
+        # Like with Qt, this needs to happen after importing Gtk but before creating the first mpv.MPV instance.
+        import locale
+        locale.setlocale(locale.LC_NUMERIC, 'C')
+        
         application = MainClass()
         Gtk.main()
 
