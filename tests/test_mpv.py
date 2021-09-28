@@ -291,7 +291,7 @@ class ObservePropertyTest(MpvTestCase):
         self.assertEqual(m.mute, True)
         self.assertEqual(m.slang, ['ru'])
 
-        time.sleep(0.05)
+        time.sleep(0.1)
         foo.unobserve_mpv_properties()
 
         m.mute = False
