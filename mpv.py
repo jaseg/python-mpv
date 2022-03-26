@@ -849,7 +849,7 @@ class MPV(object):
             self.set_loglevel(loglevel or 'terminal-default')
         if start_event_thread:
             self._event_thread = threading.Thread(target=self._loop, name='MPVEventHandlerThread')
-            self._event_thread.setDaemon(True)
+            self._event_thread.daemon = True
             self._event_thread.start()
         else:
             self._event_thread = None
