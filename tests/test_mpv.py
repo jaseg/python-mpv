@@ -113,6 +113,9 @@ class TestProperties(MpvTestCase):
             # These may cause files to be created
             if name in ('external-file', 'heartbeat-cmd', 'wid', 'dump-stats', 'log-file') or name.startswith('input-'):
                 continue
+            # Caues segmentation faults on wayland
+            if name in ('current-window-scale',):
+                continue
             name =  name.replace('-', '_')
             old_canaries = check_canaries()
             with self.subTest(property_name=name), self.swallow_mpv_errors([
