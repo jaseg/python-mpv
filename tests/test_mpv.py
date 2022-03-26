@@ -380,6 +380,31 @@ class KeyBindingTest(MpvTestCase):
         self.assertNotIn(b('b'), self.m._key_binding_handlers)
         self.assertIn(b('c'), self.m._key_binding_handlers)
 
+    def test_wait_for_event_error_forwarding(self):
+        self.m.play(TESTVID)
+
+        def check(evt):
+            raise ValueError('fnord')
+
+        with self.assertRaises(ValueError):
+            self.m.wait_for_event('end_file', cond=check)
+
+    def test_wait_for_property_error_forwarding(self):
+        def run():
+            nonlocal self
+            self.m.wait_until_playing()
+            self.m.mute = True
+        t = threading.Thread(target=run, daemon=True)
+        t.start()
+
+        def cond(mute):
+            if mute:
+                raise ValueError('fnord')
+
+        with self.assertRaises(ValueError):
+            self.m.play(TESTVID)
+            self.m.wait_for_property('mute', cond=cond)
+
     def test_register_simple_decorator_fun_chaining(self):
         self.m.loop = 'inf'
         self.m.play(TESTVID)

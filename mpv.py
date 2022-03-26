@@ -24,6 +24,7 @@ import sys
 from warnings import warn
 from functools import partial, wraps
 from contextlib import contextmanager
+from concurrent.futures import Future
 import collections
 import re
 import traceback
@@ -903,79 +904,92 @@ class MPV(object):
         if self._core_shutdown:
             raise ShutdownError('libmpv core has been shutdown')
 
-    def wait_until_paused(self):
+    def wait_until_paused(self, timeout=None):
         """Waits until playback of the current title is paused or done. Raises a ShutdownError if the core is shutdown while
         waiting."""
-        self.wait_for_property('core-idle')
+        self.wait_for_property('core-idle', timeout=timeout)
 
-    def wait_for_playback(self):
+    def wait_for_playback(self, timeout=None):
         """Waits until playback of the current title is finished. Raises a ShutdownError if the core is shutdown while
         waiting.
         """
-        self.wait_for_event('end_file')
+        self.wait_for_event('end_file', timeout=timeout)
 
-    def wait_until_playing(self):
+    def wait_until_playing(self, timeout=None):
         """Waits until playback of the current title has started. Raises a ShutdownError if the core is shutdown while
         waiting."""
-        self.wait_for_property('core-idle', lambda idle: not idle)
+        self.wait_for_property('core-idle', lambda idle: not idle, timeout=timeout)
 
-    def wait_for_property(self, name, cond=lambda val: val, level_sensitive=True):
+    def wait_for_property(self, name, cond=lambda val: val, level_sensitive=True, timeout=None):
         """Waits until ``cond`` evaluates to a truthy value on the named property. This can be used to wait for
         properties such as ``idle_active`` indicating the player is done with regular playback and just idling around.
         Raises a ShutdownError when the core is shutdown while waiting.
         """
-        with self.prepare_and_wait_for_property(name, cond, level_sensitive):
+        with self.prepare_and_wait_for_property(name, cond, level_sensitive, timeout=timeout):
             pass
 
-    def wait_for_shutdown(self):
+    def wait_for_shutdown(self, timeout=None):
         '''Wait for core to shutdown (e.g. through quit() or terminate()).'''
-        sema = threading.Semaphore(value=0)
+        result = Future()
 
         @self.event_callback('shutdown')
         def shutdown_handler(event):
-            sema.release()
+            result.set_result(None)
 
-        sema.acquire()
-        shutdown_handler.unregister_mpv_events()
+        try:
+            if self._core_shutdown:
+                return
+
+            result.set_running_or_notify_cancel()
+            return result.result(timeout)
+        finally:
+            shutdown_handler.unregister_mpv_events()
 
     @contextmanager
-    def prepare_and_wait_for_property(self, name, cond=lambda val: val, level_sensitive=True):
+    def prepare_and_wait_for_property(self, name, cond=lambda val: val, level_sensitive=True, timeout=None):
         """Context manager that waits until ``cond`` evaluates to a truthy value on the named property. See
         prepare_and_wait_for_event for usage.
-        Raises a ShutdownError when the core is shutdown while waiting.
+        Raises a ShutdownError when the core is shutdown while waiting. Re-raises any errors inside ``cond``.
         """
-        sema = threading.Semaphore(value=0)
+        result = Future()
 
         def observer(name, val):
-            if cond(val):
-                sema.release()
+            try:
+                rv = cond(val)
+                if rv:
+                    result.set_result(rv)
+            except Exception as e:
+                result.set_exception(e)
         self.observe_property(name, observer)
 
         @self.event_callback('shutdown')
         def shutdown_handler(event):
-            sema.release()
+            result.set_exception(ShutdownError('libmpv core has been shutdown'))
 
-        yield
-        if not level_sensitive or not cond(getattr(self, name.replace('-', '_'))):
-            sema.acquire()
+        try:
+            yield
 
-        self.check_core_alive()
+            if not level_sensitive or not cond(getattr(self, name.replace('-', '_'))):
+                self.check_core_alive()
+                result.set_running_or_notify_cancel()
+                return result.result(timeout)
+        finally:
+            shutdown_handler.unregister_mpv_events()
+            self.unobserve_property(name, observer)
 
-        shutdown_handler.unregister_mpv_events()
-        self.unobserve_property(name, observer)
-
-    def wait_for_event(self, *event_types, cond=lambda evt: True):
+    def wait_for_event(self, *event_types, cond=lambda evt: True, timeout=None):
         """Waits for the indicated event(s). If cond is given, waits until cond(event) is true. Raises a ShutdownError
-        if the core is shutdown while waiting. This also happens when 'shutdown' is in event_types.
+        if the core is shutdown while waiting. This also happens when 'shutdown' is in event_types. Re-raises any error
+        inside ``cond``.
         """
-        with self.prepare_and_wait_for_event(*event_types, cond=cond):
+        with self.prepare_and_wait_for_event(*event_types, cond=cond, timeout=timeout):
             pass
 
     @contextmanager
-    def prepare_and_wait_for_event(self, *event_types, cond=lambda evt: True):
+    def prepare_and_wait_for_event(self, *event_types, cond=lambda evt: True, timeout=None):
         """Context manager that waits for the indicated event(s) like wait_for_event after running. If cond is given,
         waits until cond(event) is true. Raises a ShutdownError if the core is shutdown while waiting. This also happens
-        when 'shutdown' is in event_types.
+        when 'shutdown' is in event_types. Re-raises any error inside ``cond``.
 
         Compared to wait_for_event this handles the case where a thread waits for an event it itself causes in a
         thread-safe way. An example from the testsuite is:
@@ -986,24 +1000,31 @@ class MPV(object):
         Using just wait_for_event it would be impossible to ensure the event is caught since it may already have been
         handled in the interval between keypress(...) running and a subsequent wait_for_event(...) call.
         """
-        sema = threading.Semaphore(value=0)
+        result = Future()
 
         @self.event_callback('shutdown')
         def shutdown_handler(event):
-            sema.release()
+            result.set_exception(ShutdownError('libmpv core has been shutdown'))
 
         @self.event_callback(*event_types)
         def target_handler(evt):
-            if cond(evt):
-                sema.release()
 
-        yield
-        sema.acquire()
+            try:
+                rv = cond(evt)
+                if rv:
+                    result.set_result(rv)
+            except Exception as e:
+                result.set_exception(e)
 
-        self.check_core_alive()
+        try:
+            yield
+            self.check_core_alive()
+            result.set_running_or_notify_cancel()
+            return result.result(timeout)
 
-        shutdown_handler.unregister_mpv_events()
-        target_handler.unregister_mpv_events()
+        finally:
+            shutdown_handler.unregister_mpv_events()
+            target_handler.unregister_mpv_events()
 
     def __del__(self):
         if self.handle:
