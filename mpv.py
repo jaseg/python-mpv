@@ -653,6 +653,21 @@ def _make_node_str_list(l):
         val=MpvNodeUnion(list=pointer(node_list)))
     return char_ps, node_list, node, cast(pointer(node), c_void_p)
 
+def _make_node_str_map(d):
+    """Take a dict of python objects and make a MPV string node map from it. """
+    char_ps = [ (c_char_p(k.encode('utf-8')), c_char_p(_mpv_coax_proptype(v, str))) for k, v in d.items() ]
+    node_list = MpvNodeList(
+        num=len(d),
+        keys=( c_char_p * len(d))( *[k for k, v in char_ps] ),
+        values=( MpvNode * len(d))( *[ MpvNode(
+                format=MpvFormat.STRING,
+                val=MpvNodeUnion(string=v))
+            for k, v in char_ps ]))
+    node = MpvNode(
+        format=MpvFormat.NODE_MAP,
+        val=MpvNodeUnion(map=pointer(node_list)))
+    return char_ps, node_list, node, cast(pointer(node), c_void_p)
+
 
 def _event_generator(handle):
     while True:
@@ -1110,7 +1125,7 @@ class MPV(object):
         args = _create_null_term_cmd_arg_array(name, args)
         _mpv_command(self.handle, args)
 
-    def command_async(self, name, *args, callback=None):
+    def command_async(self, name, *args, callback=None, **kwargs):
         """Same as mpv_command, but run the command asynchronously. If you provide a callback, that callback will be
         called after completion or on error. This method returns a future that evaluates to the result of the callback
         (if given), and the result of the libmpv call otherwise.
@@ -1141,7 +1156,14 @@ class MPV(object):
 
         self._command_reply_callbacks[id(future)] = wrapper
 
-        _1, _2, _3, pointer = _make_node_str_list([name, *args])
+        if kwargs:
+            if args:
+                raise ValueError('Can only call mpv commands either using positional or using named arguments, not a mix of both.')
+            kwargs['name'] = name
+            _1, _2, _3, pointer = _make_node_str_map(kwargs)
+        else:
+            _1, _2, _3, pointer = _make_node_str_list([name, *args])
+
         ppointer = cast(pointer, POINTER(MpvNode))
         _mpv_command_node_async(self._event_handle, id(future), ppointer)
         return future
@@ -1150,8 +1172,15 @@ class MPV(object):
     def node_command(self, name, *args, decoder=strict_decoder):
         self.command(name, *args, decoder=decoder)
 
-    def command(self, name, *args, decoder=strict_decoder):
-        _1, _2, _3, pointer = _make_node_str_list([name, *args])
+    def command(self, name, *args, decoder=strict_decoder, **kwargs):
+        if kwargs:
+            if args:
+                raise ValueError('Can only call mpv commands either using positional or using named arguments, not a mix of both.')
+            kwargs['name'] = name
+            _1, _2, _3, pointer = _make_node_str_map(kwargs)
+        else:
+            _1, _2, _3, pointer = _make_node_str_list([name, *args])
+
         out = cast(create_string_buffer(sizeof(MpvNode)), POINTER(MpvNode))
         ppointer = cast(pointer, POINTER(MpvNode))
         _mpv_command_node(self.handle, ppointer, out)
@@ -1159,7 +1188,7 @@ class MPV(object):
         _mpv_free_node_contents(out)
         return rv
 
-    def seek(self, amount, reference="relative", precision="default-precise"):
+    def seek(self, amount, reference="relative", precision="keyframes"):
         """Mapped mpv seek command, see man mpv(1)."""
         self.command('seek', amount, reference, precision)
 
@@ -1202,7 +1231,7 @@ class MPV(object):
     def screenshot_raw(self, includes='subtitles'):
         """Mapped mpv screenshot_raw command, see man mpv(1). Returns a pillow Image object."""
         from PIL import Image
-        res = self.node_command('screenshot-raw', includes)
+        res = self.command('screenshot-raw', includes)
         if res['format'] != 'bgr0':
             raise ValueError('Screenshot in unknown format "{}". Currently, only bgr0 is supported.'
                     .format(res['format']))
@@ -1359,11 +1388,11 @@ class MPV(object):
 
     def expand_text(self, text):
         """Mapped mpv expand-text command, see man mpv(1)."""
-        return self.node_command('expand-text', text)
+        return self.command('expand-text', text)
 
     def expand_path(self, path):
         """Mapped mpv expand-path command, see man mpv(1)."""
-        return self.node_command('expand-path', path)
+        return self.command('expand-path', path)
 
     def show_progress(self):
         """Mapped mpv show_progress command, see man mpv(1)."""
@@ -1414,6 +1443,13 @@ class MPV(object):
     def overlay_remove(self, overlay_id):
         """Mapped mpv overlay_remove command, see man mpv(1)."""
         self.command('overlay_remove', overlay_id)
+
+    def osd_overlay(self, overlay_id, data, res_x=0, res_y=720, z=0, hidden=False):
+        self.command('osd_overlay', id=overlay_id, data=data, res_x=res_x, res_y=res_Y, z=z, hidden=hidden,
+        format='ass-events')
+
+    def osd_overlay_remove(self, overlay_id):
+        self.command('osd_overlay', id=overlay_id, format='none')
 
     def script_message(self, *args):
         """Mapped mpv script_message command, see man mpv(1)."""
