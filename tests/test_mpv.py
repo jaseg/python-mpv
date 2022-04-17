@@ -640,7 +640,18 @@ class TestLifecycle(unittest.TestCase):
                 m.terminate()
         self.disp.stop()
 
-    @devnull_libmpv()
+    def test_wait_for_shutdown(self):
+        self.disp = Xvfb()
+        self.disp.start()
+        handler = mock.Mock()
+        m = mpv.MPV()
+        m.play(TESTVID)
+        with self.assertRaises(mpv.ShutdownError):
+            with m.prepare_and_wait_for_event(None) as result:
+                m.terminate()
+            result.result()
+        self.disp.stop()
+
     def test_log_handler(self):
         handler = mock.Mock()
         self.disp = Xvfb()
