@@ -687,6 +687,7 @@ class CommandTests(MpvTestCase):
     def test_sub_add(self):
         handler = mock.Mock()
         self.m.property_observer('sub-text')(handler)
+        time.sleep(0.5)
 
         self.m.loadfile(TESTVID)
         self.m.wait_until_playing()
