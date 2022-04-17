@@ -16,58 +16,28 @@ import time
 import io
 import platform
 import ctypes
+from concurrent.futures import Future
 
 import mpv
 
 from xvfbwrapper import Xvfb
 
 
-# stdout magic to suppress useless libmpv warning messages in unittest output
-# See https://eli.thegreenplace.net/2015/redirecting-all-kinds-of-stdout-in-python/
-@contextmanager
-def devnull_libmpv():
-    """ Redirect libmpv stdout into /dev/null while still allowing python to print to stdout as usual """
-    if platform.system() != 'Linux':
-        # This is only a linux-specific convenience function.
-        yield
-        return
-
-    libc = ctypes.CDLL("libc.so.6")
-
-    stderr_fd, stdout_fd = sys.stderr.fileno(), sys.stdout.fileno()
-    sys.stderr.flush()
-    sys.stdout.flush()
-    libc.fflush(None)
-
-    # Preserve a copy so python can continue printing
-    stderr_copy, stdout_copy = os.dup(stderr_fd), os.dup(stdout_fd)
-    sys.stderr = io.TextIOWrapper(open(stderr_copy, 'wb', closefd=False), write_through=True)
-    sys.stdout = io.TextIOWrapper(open(stdout_copy, 'wb', closefd=False))
-    with open(os.devnull, 'w') as devnull:
-        os.dup2(devnull.fileno(), stderr_fd) # closes old stderr
-        os.dup2(devnull.fileno(), stdout_fd) # closes old stdout
-
-    yield
-
-    sys.stderr.flush()
-    sys.stdout.flush()
-    libc.fflush(None)
-    os.dup2(stderr_copy, stderr_fd)
-    os.dup2(stdout_copy, stdout_fd)
-    os.close(stderr_copy)
-    os.close(stdout_copy)
-    sys.stderr = io.TextIOWrapper(open(stderr_fd, 'wb', closefd=False), write_through=True)
-    sys.stdout = io.TextIOWrapper(open(stdout_fd, 'wb', closefd=False))
-
 TESTVID = os.path.join(os.path.dirname(__file__), 'test.webm')
 TESTSRT = os.path.join(os.path.dirname(__file__), 'sub_test.srt')
 MPV_ERRORS = [ l(ec) for ec, l in mpv.ErrorCode.EXCEPTION_DICT.items() if l ]
+
+def timed_print():
+    start_time = time.time()
+    def do_print(level, prefix, text):
+        td = time.time() - start_time
+        print('{:.3f} [{}] {}: {}'.format(td, level, prefix, text), flush=True)
 
 class MpvTestCase(unittest.TestCase):
     def setUp(self):
         self.disp = Xvfb()
         self.disp.start()
-        self.m = mpv.MPV(vo='x11')
+        self.m = mpv.MPV(vo='x11', loglevel='debug', log_handler=timed_print())
 
     def tearDown(self):
         self.m.terminate()
@@ -85,7 +55,6 @@ class TestProperties(MpvTestCase):
             else:
                 raise
 
-    @devnull_libmpv()
     def test_read(self):
         self.m.loop = 'inf'
         self.m.play(TESTVID)
@@ -99,7 +68,6 @@ class TestProperties(MpvTestCase):
                 mpv.ErrorCode.PROPERTY_NOT_FOUND]):
                 getattr(self.m, name)
 
-    @devnull_libmpv()
     def test_write(self):
         self.m.loop = 'inf'
         self.m.play(TESTVID)
@@ -222,7 +190,6 @@ class TestProperties(MpvTestCase):
             # See comment in test_property_decoding_invalid_utf8
             self.m.osd.alang
 
-    @devnull_libmpv()
     def test_option_read(self):
         self.m.loop = 'inf'
         self.m.play(TESTVID)
@@ -239,7 +206,6 @@ class TestProperties(MpvTestCase):
 
 
 class ObservePropertyTest(MpvTestCase):
-    @devnull_libmpv()
     def test_observe_property(self):
         handler = mock.Mock()
 
@@ -256,7 +222,6 @@ class ObservePropertyTest(MpvTestCase):
         m.terminate() # needed for synchronization of event thread
         handler.assert_has_calls([mock.call('vid', 'auto')])
 
-    @devnull_libmpv()
     def test_property_observer_decorator(self):
         handler = mock.Mock()
 
@@ -454,7 +419,6 @@ class KeyBindingTest(MpvTestCase):
         handler2.assert_has_calls([ mock.call() ])
 
 class TestStreams(unittest.TestCase):
-    @devnull_libmpv()
     def test_python_stream(self):
         handler = mock.Mock()
 
@@ -589,27 +553,28 @@ class TestLifecycle(unittest.TestCase):
         m.terminate()
         handler.assert_not_called()
 
-    @devnull_libmpv()
     def test_wait_for_property_negative(self):
         self.disp = Xvfb()
         self.disp.start()
         m = mpv.MPV()
         m.play(TESTVID)
+        result = Future()
         def run():
             nonlocal self
+            result.set_running_or_notify_cancel()
             try:
                 m.wait_for_property('mute')
-                self.fail()
+                result.set_result(False)
             except mpv.ShutdownError:
-                pass
+                result.set_result(True)
         t = threading.Thread(target=run, daemon=True)
         t.start()
         time.sleep(1)
         m.terminate()
         t.join()
         self.disp.stop()
+        assert result.result()
 
-    @devnull_libmpv()
     def test_wait_for_property_positive(self):
         self.disp = Xvfb()
         self.disp.start()
@@ -629,28 +594,29 @@ class TestLifecycle(unittest.TestCase):
         handler.assert_called()
         self.disp.stop()
 
-    @devnull_libmpv()
     def test_wait_for_event(self):
         self.disp = Xvfb()
         self.disp.start()
         handler = mock.Mock()
         m = mpv.MPV()
         m.play(TESTVID)
+        result = Future()
         def run():
             nonlocal self
+            result.set_running_or_notify_cancel()
             try:
                 m.wait_for_event('seek')
-                self.fail()
+                result.set_result(False)
             except mpv.ShutdownError:
-                pass
+                result.set_result(True)
         t = threading.Thread(target=run, daemon=True)
         t.start()
         time.sleep(1)
         m.terminate()
         t.join()
         self.disp.stop()
+        assert result.result()
 
-    @devnull_libmpv()
     def test_wait_for_property_shutdown(self):
         self.disp = Xvfb()
         self.disp.start()
@@ -664,11 +630,9 @@ class TestLifecycle(unittest.TestCase):
                 m.terminate()
         self.disp.stop()
 
-    @devnull_libmpv()
     def test_wait_for_event_shutdown(self):
         self.disp = Xvfb()
         self.disp.start()
-        handler = mock.Mock()
         m = mpv.MPV()
         m.play(TESTVID)
         with self.assertRaises(mpv.ShutdownError):
