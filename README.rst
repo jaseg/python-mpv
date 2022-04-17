@@ -32,7 +32,7 @@ On Windows you can place libmpv anywhere in your ``%PATH%`` (e.g. next to ``pyth
 into ctypes, which is different to the one Windows uses internally. Consult `this stackoverflow post
 <https://stackoverflow.com/a/23805306>`__ for details.
 
-Python >= 3.5 (officially)
+Python >= 3.7 (officially)
 ..........................
 The ``master`` branch officially only supports recent python releases (3.5 onwards), but there is the somewhat outdated
 but functional `py2compat branch`_ providing Python 2 compatibility.
@@ -387,6 +387,11 @@ Using mpv inside imgui inside OpenGL via GLFW
 .............................................
 
 dfaker_ has written a demo (`link <https://github.com/dfaker/imgui_glfw_pythonmpv_demo/blob/main/main.py>`__) that uses mpv to render video into an `imgui <https://github.com/ocornut/imgui>`__ UI running on an OpenGL context inside `GLFW <https://www.glfw.org/>`__. Check out their demo to see how to integrate with imgui/OpenGL and how to access properties and manage the lifecycle of an MPV instance.
+
+Running tests
+-------------
+
+Use pytest to run tests.
 
 Coding Conventions
 ------------------
