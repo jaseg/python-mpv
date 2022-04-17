@@ -1459,6 +1459,15 @@ class MPV(object):
         """Mapped mpv script_message_to command, see man mpv(1)."""
         self.command('script_message_to', target, *args)
 
+    def drop_buffers(self):
+        self.command('drop_buffers')
+
+    def vf_command(self, label, command, argument):
+        self.command('vf_command', label, command, argument)
+
+    def af_command(self, label, command, argument):
+        self.command('af_command', label, command, argument)
+
     def observe_property(self, name, handler):
         """Register an observer on the named property. An observer is a function that is called with the new property
         value every time the property's value is changed. The basic function signature is ``fun(property_name,
