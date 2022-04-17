@@ -697,6 +697,24 @@ class CommandTests(MpvTestCase):
         handler.assert_any_call('sub-text', 'This is\na subtitle test.')
         handler.assert_any_call('sub-text', 'This is the second subtitle line.')
 
+    def test_async_command(self):
+        handler = mock.Mock()
+        callback = mock.Mock()
+        self.m.property_observer('sub-text')(handler)
+        time.sleep(0.5)
+
+        self.m.loadfile(TESTVID)
+        self.m.wait_until_playing()
+        self.m.command_async('sub_add', TESTSRT, callback=callback)
+        reply = self.m.command_async('expand-text', 'test ${mute}')
+        assert reply.result() == 'test no'
+
+        self.m.wait_for_playback()
+        handler.assert_any_call('sub-text', 'This is\na subtitle test.')
+        handler.assert_any_call('sub-text', 'This is the second subtitle line.')
+        callback.assert_any_call(None, None)
+
+
 
 class RegressionTests(MpvTestCase):
 

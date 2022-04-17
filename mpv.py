@@ -131,11 +131,17 @@ class ErrorCode(object):
         return ValueError(ErrorCode.human_readable(ec), ec, *args)
 
     @classmethod
-    def raise_for_ec(kls, ec, func, *args):
+    def exception_for_ec(kls, ec, *args):
         ec = 0 if ec > 0 else ec
-        ex = kls.EXCEPTION_DICT.get(ec , kls.default_error_handler)
+        ex = kls.EXCEPTION_DICT.get(ec, kls.default_error_handler)
         if ex:
-            raise ex(ec, *args)
+            return ex(ec, *args)
+
+    @classmethod
+    def raise_for_ec(kls, ec, func, *args):
+        ex = kls.exception_for_ec(ec, *args)
+        if ex:
+            raise ex
 
 MpvGlGetProcAddressFn = CFUNCTYPE(c_void_p, c_void_p, c_char_p)
 class MpvOpenGLInitParams(Structure):
@@ -557,6 +563,8 @@ _handle_func('mpv_command',                 [POINTER(c_char_p)],                
 _handle_func('mpv_command_string',          [c_char_p, c_char_p],                       c_int, ec_errcheck)
 _handle_func('mpv_command_async',           [c_ulonglong, POINTER(c_char_p)],           c_int, ec_errcheck)
 _handle_func('mpv_command_node',            [POINTER(MpvNode), POINTER(MpvNode)],       c_int, ec_errcheck)
+_handle_func('mpv_command_node_async',      [c_ulonglong, POINTER(MpvNode)],            c_int, ec_errcheck)
+_handle_func('mpv_abort_async_command',     [c_ulonglong],                              None, errcheck=None)
 
 _handle_func('mpv_set_property',            [c_char_p, MpvFormat, c_void_p],            c_int, ec_errcheck)
 _handle_func('mpv_set_property_string',     [c_char_p, c_char_p],                       c_int, ec_errcheck)
@@ -824,8 +832,6 @@ class MPV(object):
     To make your program not barf hard the first time its used on a weird file system **always** access properties
     containing file names or file tags through ``MPV.raw``.  """
 
-    _UINT_64_MAX = 2 ** 64 - 1
-
     def __init__(self, *extra_mpv_flags, log_handler=None, start_event_thread=True, loglevel=None, **extra_mpv_opts):
         """Create an MPV instance.
 
@@ -853,9 +859,7 @@ class MPV(object):
         self.lazy   = _DecoderPropertyProxy(self, lazy_decoder)
 
         self._event_callbacks = []
-        self._event_async_callbacks = {}
-        self._event_async_callback_counter = 0
-        self._event_async_callback_counter_lock = threading.Lock()
+        self._command_reply_callbacks = {}
         self._event_handler_lock = threading.Lock()
         self._property_handlers = collections.defaultdict(lambda: [])
         self._quit_handlers = set()
@@ -910,9 +914,9 @@ class MPV(object):
 
                 if eid == MpvEventID.COMMAND_REPLY:
                     key = devent['reply_userdata']
-                    callback = self._event_async_callbacks.pop(key, None)
+                    callback = self._command_reply_callbacks.pop(key, None)
                     if callback:
-                        callback(devent['error'], devent['event']['result'])
+                        callback(ErrorCode.exception_for_ec(devent['error']), devent['event']['result'])
 
                 if eid == MpvEventID.SHUTDOWN:
                     _mpv_destroy(self._event_handle)
@@ -1106,25 +1110,41 @@ class MPV(object):
         _mpv_command(self.handle, args)
 
     def command_async(self, name, *args, callback=None):
-        """Same as mpv_command, but run the command asynchronously. Once the command ran, the callback will be invoked,
-        if provided. The first argument of the callback will be an integer value. If no error occurred this value will
-        be >= 0. In case of an error this will be a mpv_error value (see mpv.ErrorCode for more information).
-        The second argument will be the return value of the command or None if the command does not return a value.
+        """Same as mpv_command, but run the command asynchronously. If you provide a callback, that callback will be
+        called after completion or on error. This method returns a future that evaluates to the result of the callback
+        (if given), and the result of the libmpv call otherwise.
 
-        Callback example::
+        Usage example:
 
-            def callback(error, result):
-                try:
-                    mpv.ErrorCode.raise_for_ec(error)
-                    ... # handle normal case
-                except MemoryError as e:  # for example
-                    ... # handle MemoryError
-                except Exception as e:
-                    ... # catch-all: handle all other exceptions
+            future = player.command_async(...)
+            try:
+                print('The result was', future.result())
+            except Exception as e:
+                print('mpv returned an error:', e)
         """
-        key = self._register_async_callback(name, args, callback)
-        args = _create_null_term_cmd_arg_array(name, args)
-        _mpv_command_async(self._event_handle, key, args)
+
+        future = Future()
+        future.set_running_or_notify_cancel()
+
+        if callback is None:
+            def callback(error, result):
+                if error:
+                    raise error
+                return result
+
+        def wrapper(error, result):
+            try:
+                future.set_result(callback(error, result))
+            except Exception as e:
+                future.set_exception(e)
+
+        self._command_reply_callbacks[id(future)] = wrapper
+
+        _1, _2, _3, pointer = _make_node_str_list([name, *args])
+        ppointer = cast(pointer, POINTER(MpvNode))
+        _mpv_command_node_async(self._event_handle, id(future), ppointer)
+        return future
+
 
     def node_command(self, name, *args, decoder=strict_decoder):
         self.command(name, *args, decoder=decoder)
@@ -1902,17 +1922,6 @@ class MPV(object):
             return self._get_property('option-info/'+name)
         except AttributeError:
             return None
-
-    def _register_async_callback(self, name, args, callback):
-        if callback is None:
-            def callback(err, _result):
-                if err < 0:
-                    warn('Error executing async command \'{} {}\': \'{}\''
-                         .format(name, ' '.join(repr(arg) for arg in args), ErrorCode.human_readable(err)))
-        with self._event_async_callback_counter_lock:
-            key = self._event_async_callback_counter = (self._event_async_callback_counter + 1) % MPV._UINT_64_MAX
-        self._event_async_callbacks[key] = callback
-        return key
 
 
 class MpvRenderContext:
