@@ -400,8 +400,16 @@ The general aim is `PEP 8`_, with liberal application of the "consistency" secti
 No tabs. Probably don't bother making pure-formatting PRs except if you think it *really* helps readability or it
 *really* irks you if you don't.
 
+License
+-------
+
+python-mpv inherits the underlying libmpv's license, which can be either GPLv2 or later (default) or LGPLv2.1 or later.
+For details, see `the mpv copyright page`_.
+
 .. _`PEP 8`: https://www.python.org/dev/peps/pep-0008/
 .. _`mpv.py`: https://raw.githubusercontent.com/jaseg/python-mpv/master/mpv.py
 .. _cosven: https://github.com/cosven
 .. _Robozman: https://gitlab.com/robozman
 .. _dfaker: https://github.com/dfaker
+.. _`the mpv copyright page`: https://github.com/mpv-player/mpv/blob/master/Copyright
+
