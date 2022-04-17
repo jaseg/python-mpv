@@ -122,6 +122,36 @@ Logging, Properties, Python Key Bindings, Screenshots and youtube-dl
 
     del player
 
+Skipping silence using libav filters
+....................................
+
+The following code uses the libav silencedetect filter to skip silence at the beginning of a file. It works by loading
+the filter, then parsing its output from mpv's log. Thanks to Sean DeNigris on github (#202) for the original code!
+
+.. code:: python
+
+    #!/usr/bin/env python3
+    import sys
+    import mpv
+
+    p = mpv.MPV()
+    p.play(sys.argv[1])
+
+    def skip_silence():
+        p.set_loglevel('debug')
+        p.af = 'lavfi=[silencedetect=n=-20dB:d=1]'
+        p.speed = 100
+        def check(evt):
+            toks = evt['event']['text'].split()
+            if 'silence_end:' in toks:
+                return float(toks[2])
+        p.time_pos = p.wait_for_event('log_message', cond=check)
+        p.speed = 1
+        p.af = ''
+
+    skip_silence()
+    p.wait_for_playback()
+
 Video overlays
 ..............
 
