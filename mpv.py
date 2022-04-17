@@ -532,7 +532,7 @@ _mpv_create = backend.mpv_create
 _handle_func('mpv_create_client',           [c_char_p],                                 MpvHandle, notnull_errcheck)
 _handle_func('mpv_client_name',             [],                                         c_char_p, errcheck=None)
 _handle_func('mpv_initialize',              [],                                         c_int, ec_errcheck)
-_handle_func('mpv_destroy',          [],                                         None, errcheck=None)
+_handle_func('mpv_destroy',                 [],                                         None, errcheck=None)
 _handle_func('mpv_terminate_destroy',       [],                                         None, errcheck=None)
 _handle_func('mpv_load_config_file',        [c_char_p],                                 c_int, ec_errcheck)
 _handle_func('mpv_get_time_us',             [],                                         c_ulonglong, errcheck=None)
@@ -1070,13 +1070,16 @@ class MPV(object):
         """
         _mpv_request_log_messages(self._event_handle, level.encode('utf-8'))
 
-    def command(self, name, *args):
+    def string_command(self, name, *args):
         """Execute a raw command."""
         args = [name.encode('utf-8')] + [ (arg if type(arg) is bytes else str(arg).encode('utf-8'))
                 for arg in args if arg is not None ] + [None]
         _mpv_command(self.handle, (c_char_p*len(args))(*args))
 
     def node_command(self, name, *args, decoder=strict_decoder):
+        self.command(name, *args, decoder=decoder)
+
+    def command(self, name, *args, decoder=strict_decoder):
         _1, _2, _3, pointer = _make_node_str_list([name, *args])
         out = cast(create_string_buffer(sizeof(MpvNode)), POINTER(MpvNode))
         ppointer = cast(pointer, POINTER(MpvNode))
