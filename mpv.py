@@ -24,7 +24,7 @@ import sys
 from warnings import warn
 from functools import partial, wraps
 from contextlib import contextmanager
-from concurrent.futures import Future
+from concurrent.futures import Future, InvalidStateError
 import collections
 import re
 import traceback
@@ -925,25 +925,16 @@ class MPV(object):
         properties such as ``idle_active`` indicating the player is done with regular playback and just idling around.
         Raises a ShutdownError when the core is shutdown while waiting.
         """
-        with self.prepare_and_wait_for_property(name, cond, level_sensitive, timeout=timeout):
+        with self.prepare_and_wait_for_property(name, cond, level_sensitive, timeout=timeout) as result:
             pass
+        return result.result()
 
     def wait_for_shutdown(self, timeout=None):
         '''Wait for core to shutdown (e.g. through quit() or terminate()).'''
-        result = Future()
-
-        @self.event_callback('shutdown')
-        def shutdown_handler(event):
-            result.set_result(None)
-
         try:
-            if self._core_shutdown:
-                return
-
-            result.set_running_or_notify_cancel()
-            return result.result(timeout)
-        finally:
-            shutdown_handler.unregister_mpv_events()
+            self.wait_for_event(None, timeout=timeout)
+        except ShutdownError:
+            return
 
     @contextmanager
     def prepare_and_wait_for_property(self, name, cond=lambda val: val, level_sensitive=True, timeout=None):
@@ -959,20 +950,32 @@ class MPV(object):
                 if rv:
                     result.set_result(rv)
             except Exception as e:
-                result.set_exception(e)
+                try:
+                    result.set_exception(e)
+                except InvalidStateError:
+                    pass
+            except InvalidStateError:
+                pass
         self.observe_property(name, observer)
 
         @self.event_callback('shutdown')
         def shutdown_handler(event):
-            result.set_exception(ShutdownError('libmpv core has been shutdown'))
+            try:
+                result.set_exception(ShutdownError('libmpv core has been shutdown'))
+            except InvalidStateError:
+                pass
 
         try:
-            yield
+            result.set_running_or_notify_cancel()
+            yield result
 
-            if not level_sensitive or not cond(getattr(self, name.replace('-', '_'))):
+            rv = cond(getattr(self, name.replace('-', '_')))
+            if level_sensitive and rv:
+                result.set_result(rv)
+
+            else:
                 self.check_core_alive()
-                result.set_running_or_notify_cancel()
-                return result.result(timeout)
+                result.result(timeout)
         finally:
             shutdown_handler.unregister_mpv_events()
             self.unobserve_property(name, observer)
@@ -982,8 +985,9 @@ class MPV(object):
         if the core is shutdown while waiting. This also happens when 'shutdown' is in event_types. Re-raises any error
         inside ``cond``.
         """
-        with self.prepare_and_wait_for_event(*event_types, cond=cond, timeout=timeout):
+        with self.prepare_and_wait_for_event(*event_types, cond=cond, timeout=timeout) as result:
             pass
+        return result.result()
 
     @contextmanager
     def prepare_and_wait_for_event(self, *event_types, cond=lambda evt: True, timeout=None):
@@ -1004,7 +1008,10 @@ class MPV(object):
 
         @self.event_callback('shutdown')
         def shutdown_handler(event):
-            result.set_exception(ShutdownError('libmpv core has been shutdown'))
+            try:
+                result.set_exception(ShutdownError('libmpv core has been shutdown'))
+            except InvalidStateError:
+                pass
 
         @self.event_callback(*event_types)
         def target_handler(evt):
@@ -1014,13 +1021,18 @@ class MPV(object):
                 if rv:
                     result.set_result(rv)
             except Exception as e:
-                result.set_exception(e)
+                try:
+                    result.set_exception(e)
+                except InvalidStateError:
+                    pass
+            except InvalidStateError:
+                pass
 
         try:
-            yield
-            self.check_core_alive()
             result.set_running_or_notify_cancel()
-            return result.result(timeout)
+            yield result
+            self.check_core_alive()
+            result.result(timeout)
 
         finally:
             shutdown_handler.unregister_mpv_events()
