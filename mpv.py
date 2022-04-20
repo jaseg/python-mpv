@@ -29,12 +29,12 @@ import re
 import traceback
 
 if os.name == 'nt':
-    dll = ctypes.util.find_library('mpv-1.dll')
+    dll = ctypes.util.find_library('mpv-2.dll')
     if dll is None:
-        raise OSError('Cannot find mpv-1.dll in your system %PATH%. One way to deal with this is to ship mpv-1.dll '
+        raise OSError('Cannot find mpv-2.dll in your system %PATH%. One way to deal with this is to ship mpv-2.dll '
                       'with your script and put the directory your script is in into %PATH% before "import mpv": '
                       'os.environ["PATH"] = os.path.dirname(__file__) + os.pathsep + os.environ["PATH"] '
-                      'If mpv-1.dll is located elsewhere, you can add that path to os.environ["PATH"].')
+                      'If mpv-2.dll is located elsewhere, you can add that path to os.environ["PATH"].')
     backend = CDLL(dll)
     fs_enc = 'utf-8'
 else:
@@ -495,9 +495,6 @@ WakeupCallback = CFUNCTYPE(None, c_void_p)
 
 RenderUpdateFn = CFUNCTYPE(None, c_void_p)
 
-OpenGlCbUpdateFn = CFUNCTYPE(None, c_void_p)
-OpenGlCbGetProcAddrFn = CFUNCTYPE(c_void_p, c_void_p, c_char_p)
-
 def _handle_func(name, args, restype, errcheck, ctx=MpvHandle, deprecated=False):
     func = getattr(backend, name)
     func.argtypes = [ctx] + args if ctx else args
@@ -597,19 +594,6 @@ _handle_func('mpv_render_context_update',               [],                     
 _handle_func('mpv_render_context_render',               [POINTER(MpvRenderParam)],                                  c_int, ec_errcheck,     ctx=MpvRenderCtxHandle)
 _handle_func('mpv_render_context_report_swap',          [],                                                         None, errcheck=None,    ctx=MpvRenderCtxHandle)
 _handle_func('mpv_render_context_free',                 [],                                                         None, errcheck=None,    ctx=MpvRenderCtxHandle)
-
-
-# Deprecated in v0.29.0 and may disappear eventually
-if hasattr(backend, 'mpv_get_sub_api'):
-    _handle_func('mpv_get_sub_api',             [MpvSubApi],                                c_void_p, notnull_errcheck, deprecated=True)
-
-    _handle_gl_func('mpv_opengl_cb_set_update_callback',    [OpenGlCbUpdateFn, c_void_p], deprecated=True)
-    _handle_gl_func('mpv_opengl_cb_init_gl',                [c_char_p, OpenGlCbGetProcAddrFn, c_void_p],    c_int, deprecated=True)
-    _handle_gl_func('mpv_opengl_cb_draw',                   [c_int, c_int, c_int],                          c_int, deprecated=True)
-    _handle_gl_func('mpv_opengl_cb_render',                 [c_int, c_int],                                 c_int, deprecated=True)
-    _handle_gl_func('mpv_opengl_cb_report_flip',            [c_ulonglong],                                  c_int, deprecated=True)
-    _handle_gl_func('mpv_opengl_cb_uninit_gl',              [],                                             c_int, deprecated=True)
-
 
 def _mpv_coax_proptype(value, proptype=str):
     """Intelligently coax the given python value into something that can be understood as a proptype property."""
