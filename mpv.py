@@ -1323,9 +1323,9 @@ class MPV(object):
         """Mapped mpv audio_reload command, see man mpv(1)."""
         self.command('audio_reload', audio_id)
 
-    def video_add(self, url, flags='select', title=None, lang=None):
+    def video_add(self, url, flags='select', title=None, lang=None, albumart=None):
         """Mapped mpv video_add command, see man mpv(1)."""
-        self.command('video_add', url.encode(fs_enc), *_drop_nones(flags, title, lang))
+        self.command('video_add', url.encode(fs_enc), *_drop_nones(flags, title, lang, albumart))
 
     def video_remove(self, video_id=None):
         """Mapped mpv video_remove command, see man mpv(1)."""
