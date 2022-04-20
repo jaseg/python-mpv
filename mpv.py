@@ -390,9 +390,6 @@ MpvNodeList._fields_ = [('num', c_int),
                         ('values', POINTER(MpvNode)),
                         ('keys', POINTER(c_char_p))]
 
-class MpvSubApi(c_int):
-    MPV_SUB_API_OPENGL_CB   = 1
-
 class MpvEvent(Structure):
     _fields_ = [('event_id', MpvEventID),
                 ('error', c_int),
