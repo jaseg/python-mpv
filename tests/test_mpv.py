@@ -243,7 +243,7 @@ class ObservePropertyTest(MpvTestCase):
 
         time.sleep(0.1) #couple frames
         m.terminate() # needed for synchronization of event thread
-        handler.assert_has_calls([mock.call('vid', b'auto')])
+        handler.assert_has_calls([mock.call('vid', 'auto')])
 
     def test_property_observer_decorator(self):
         handler = mock.Mock()
@@ -448,7 +448,9 @@ class TestStreams(unittest.TestCase):
         disp = Xvfb()
         disp.start()
         m = mpv.MPV(vo=testvo)
-        m.register_event_callback(handler)
+        def cb(evt):
+            handler(evt.as_dict(decoder=mpv.lazy_decoder))
+        m.register_event_callback(cb)
 
         @m.python_stream('foo')
         def foo_gen():
@@ -461,34 +463,34 @@ class TestStreams(unittest.TestCase):
 
         m.play('python://foo')
         m.wait_for_playback()
-        handler.assert_any_call({'reply_userdata': 0, 'error': 0, 'event_id': mpv.MpvEventID.END_FILE, 'event': {'reason': mpv.MpvEventEndFile.EOF, 'error': mpv.ErrorCode.SUCCESS}})
+        handler.assert_any_call({'event': 'end-file', 'reason': 'eof', 'playlist_entry_id': 1})
         handler.reset_mock()
 
         m.play('python://bar')
         m.wait_for_playback()
-        handler.assert_any_call({'reply_userdata': 0, 'error': 0, 'event_id': mpv.MpvEventID.END_FILE, 'event': {'reason': mpv.MpvEventEndFile.ERROR, 'error': mpv.ErrorCode.UNKNOWN_FORMAT}})
+        handler.assert_any_call({'event': 'end-file', 'reason': 'error', 'playlist_entry_id': 2, 'file_error': 'unrecognized file format'})
         handler.reset_mock()
 
         m.play('python://baz')
         m.wait_for_playback()
-        handler.assert_any_call({'reply_userdata': 0, 'error': 0, 'event_id': mpv.MpvEventID.END_FILE, 'event': {'reason': mpv.MpvEventEndFile.ERROR, 'error': mpv.ErrorCode.LOADING_FAILED}})
+        handler.assert_any_call({'event': 'end-file', 'reason': 'error', 'playlist_entry_id': 3, 'file_error': 'loading failed'})
         handler.reset_mock()
 
         m.play('foo://foo')
         m.wait_for_playback()
-        handler.assert_any_call({'reply_userdata': 0, 'error': 0, 'event_id': mpv.MpvEventID.END_FILE, 'event': {'reason': mpv.MpvEventEndFile.ERROR, 'error': mpv.ErrorCode.LOADING_FAILED}})
+        handler.assert_any_call({'event': 'end-file', 'reason': 'error', 'playlist_entry_id': 4, 'file_error': 'loading failed'})
         handler.reset_mock()
 
         foo_gen.unregister()
 
         m.play('python://foo')
         m.wait_for_playback()
-        handler.assert_any_call({'reply_userdata': 0, 'error': 0, 'event_id': mpv.MpvEventID.END_FILE, 'event': {'reason': mpv.MpvEventEndFile.ERROR, 'error': mpv.ErrorCode.LOADING_FAILED}})
+        handler.assert_any_call({'event': 'end-file', 'reason': 'error', 'playlist_entry_id': 5, 'file_error': 'loading failed'})
         handler.reset_mock()
 
         m.play('python://bar')
         m.wait_for_playback()
-        handler.assert_any_call({'reply_userdata': 0, 'error': 0, 'event_id': mpv.MpvEventID.END_FILE, 'event': {'reason': mpv.MpvEventEndFile.ERROR, 'error': mpv.ErrorCode.UNKNOWN_FORMAT}})
+        handler.assert_any_call({'event': 'end-file', 'reason': 'error', 'playlist_entry_id': 6, 'file_error': 'unrecognized file format'})
         handler.reset_mock()
 
         m.terminate()
@@ -504,7 +506,9 @@ class TestStreams(unittest.TestCase):
         disp = Xvfb()
         disp.start()
         m = mpv.MPV(vo=testvo, video=False)
-        m.register_event_callback(handler)
+        def cb(evt):
+            handler(evt.as_dict(decoder=mpv.lazy_decoder))
+        m.register_event_callback(cb)
 
         m.register_stream_protocol('pythonfail', fail_mock)
 
@@ -515,19 +519,19 @@ class TestStreams(unittest.TestCase):
 
         m.play('pythondoesnotexist://foo')
         m.wait_for_playback()
-        handler.assert_any_call({'reply_userdata': 0, 'error': 0, 'event_id': mpv.MpvEventID.END_FILE, 'event': {'reason': mpv.MpvEventEndFile.ERROR, 'error': mpv.ErrorCode.LOADING_FAILED}})
+        handler.assert_any_call({'event': 'end-file', 'reason': 'error', 'playlist_entry_id': 1, 'file_error': 'loading failed'})
         handler.reset_mock()
 
         m.play('pythonfail://foo')
         m.wait_for_playback()
-        handler.assert_any_call({'reply_userdata': 0, 'error': 0, 'event_id': mpv.MpvEventID.END_FILE, 'event': {'reason': mpv.MpvEventEndFile.ERROR, 'error': mpv.ErrorCode.LOADING_FAILED}})
+        handler.assert_any_call({'event': 'end-file', 'reason': 'error', 'playlist_entry_id': 2, 'file_error': 'loading failed'})
         handler.reset_mock()
 
         m.play('pythonsuccess://foo')
         m.wait_for_playback()
         stream_mock.seek.assert_any_call(0)
         stream_mock.read.assert_called()
-        handler.assert_any_call({'reply_userdata': 0, 'error': 0, 'event_id': mpv.MpvEventID.END_FILE, 'event': {'reason': mpv.MpvEventEndFile.ERROR, 'error': mpv.ErrorCode.UNKNOWN_FORMAT}})
+        handler.assert_any_call({'event': 'end-file', 'reason': 'error', 'playlist_entry_id': 3, 'file_error': 'unrecognized file format'})
 
         m.terminate()
         disp.stop()
@@ -562,14 +566,16 @@ class TestLifecycle(unittest.TestCase):
     def test_event_callback(self):
         handler = mock.Mock()
         m = mpv.MPV(video=False)
-        m.register_event_callback(handler)
+        def cb(evt):
+            handler(evt.as_dict(decoder=mpv.lazy_decoder))
+        m.register_event_callback(cb)
         m.play(TESTVID)
         m.wait_for_playback()
 
-        m.unregister_event_callback(handler)
+        m.unregister_event_callback(cb)
         handler.assert_has_calls([
-                mock.call({'reply_userdata': 0, 'error': 0, 'event_id': 6, 'event': None}),
-                mock.call({'reply_userdata': 0, 'error': 0, 'event_id': mpv.MpvEventID.END_FILE, 'event': {'reason': mpv.MpvEventEndFile.ERROR, 'error': mpv.ErrorCode.NOTHING_TO_PLAY}})
+                mock.call({'event': 'start-file', 'playlist_entry_id': 1}),
+                mock.call({'event': 'end-file', 'reason': 'error', 'playlist_entry_id': 1, 'file_error': 'no audio or video data played'})
             ], any_order=True)
         handler.reset_mock()
 

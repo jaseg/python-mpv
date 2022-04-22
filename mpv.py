@@ -415,7 +415,7 @@ class MpvEventProperty(Structure):
 
     @property
     def value(self):
-        return MpvNode.node_cast_value(self.data, self.format.value)
+        return MpvNode.node_cast_value(self.data, self.format.value, decoder=lazy_decoder)
 
 class MpvEventLogMessage(Structure):
     _fields_ = [('_prefix', c_char_p),
@@ -432,7 +432,7 @@ class MpvEventLogMessage(Structure):
 
     @property
     def text(self):
-        return self._text
+        return lazy_decoder(self._text)
 
 class MpvEventEndFile(Structure):
     _fields_ = [('reason', c_int),
@@ -459,8 +459,13 @@ class MpvEventClientMessage(Structure):
 class MpvEventCommand(Structure):
     _fields_ = [('_result', MpvNode)]
 
-    def result(self):
+    @property
+    def result_raw(self):
         return self._result.node_value()
+
+    @property
+    def result(self):
+        return self._result.node_value(decoder=lazy_decoder)
 
 class MpvEventHook(Structure):
     _fields_ = [('_name', c_char_p),
