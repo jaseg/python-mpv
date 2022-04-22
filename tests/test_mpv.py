@@ -32,9 +32,21 @@ import platform
 import ctypes
 from concurrent.futures import Future
 
+os.environ["PATH"] = os.path.dirname(__file__) + os.pathsep + os.environ["PATH"]
+
 import mpv
 
-from xvfbwrapper import Xvfb
+
+if os.name == 'nt':
+  testvo='gpu'
+  class Xvfb():
+    def __init__(self): pass
+    def start(self): pass
+    def stop(self): pass
+
+else:
+  from xvfbwrapper import Xvfb
+  testvo='x11'
 
 
 TESTVID = os.path.join(os.path.dirname(__file__), 'test.webm')
@@ -51,7 +63,7 @@ class MpvTestCase(unittest.TestCase):
     def setUp(self):
         self.disp = Xvfb()
         self.disp.start()
-        self.m = mpv.MPV(vo='x11', loglevel='debug', log_handler=timed_print())
+        self.m = mpv.MPV(vo=testvo, loglevel='debug', log_handler=timed_print())
 
     def tearDown(self):
         self.m.terminate()
@@ -438,7 +450,7 @@ class TestStreams(unittest.TestCase):
 
         disp = Xvfb()
         disp.start()
-        m = mpv.MPV(vo='x11')
+        m = mpv.MPV(vo=testvo)
         m.register_event_callback(handler)
 
         @m.python_stream('foo')
@@ -494,7 +506,7 @@ class TestStreams(unittest.TestCase):
 
         disp = Xvfb()
         disp.start()
-        m = mpv.MPV(vo='x11', video=False)
+        m = mpv.MPV(vo=testvo, video=False)
         m.register_event_callback(handler)
 
         m.register_stream_protocol('pythonfail', fail_mock)
@@ -570,7 +582,7 @@ class TestLifecycle(unittest.TestCase):
     def test_wait_for_property_negative(self):
         self.disp = Xvfb()
         self.disp.start()
-        m = mpv.MPV(vo='x11')
+        m = mpv.MPV(vo=testvo)
         m.play(TESTVID)
         result = Future()
         def run():
@@ -593,7 +605,7 @@ class TestLifecycle(unittest.TestCase):
         self.disp = Xvfb()
         self.disp.start()
         handler = mock.Mock()
-        m = mpv.MPV(vo='x11')
+        m = mpv.MPV(vo=testvo)
         m.play(TESTVID)
         def run():
             nonlocal self
@@ -612,7 +624,7 @@ class TestLifecycle(unittest.TestCase):
         self.disp = Xvfb()
         self.disp.start()
         handler = mock.Mock()
-        m = mpv.MPV(vo='x11')
+        m = mpv.MPV(vo=testvo)
         m.play(TESTVID)
         result = Future()
         def run():
@@ -635,7 +647,7 @@ class TestLifecycle(unittest.TestCase):
         self.disp = Xvfb()
         self.disp.start()
         handler = mock.Mock()
-        m = mpv.MPV(vo='x11')
+        m = mpv.MPV(vo=testvo)
         m.play(TESTVID)
         with self.assertRaises(mpv.ShutdownError):
             # level_sensitive=false needed to prevent get_property on dead
@@ -647,7 +659,7 @@ class TestLifecycle(unittest.TestCase):
     def test_wait_for_event_shutdown(self):
         self.disp = Xvfb()
         self.disp.start()
-        m = mpv.MPV(vo='x11')
+        m = mpv.MPV(vo=testvo)
         m.play(TESTVID)
         with self.assertRaises(mpv.ShutdownError):
             with m.prepare_and_wait_for_event('seek'):
@@ -658,7 +670,7 @@ class TestLifecycle(unittest.TestCase):
         self.disp = Xvfb()
         self.disp.start()
         handler = mock.Mock()
-        m = mpv.MPV(vo='x11')
+        m = mpv.MPV(vo=testvo)
         m.play(TESTVID)
         with self.assertRaises(mpv.ShutdownError):
             with m.prepare_and_wait_for_event(None) as result:
@@ -670,7 +682,7 @@ class TestLifecycle(unittest.TestCase):
         handler = mock.Mock()
         self.disp = Xvfb()
         self.disp.start()
-        m = mpv.MPV(vo='x11', log_handler=handler)
+        m = mpv.MPV(vo=testvo, log_handler=handler)
         m.play(TESTVID)
         # Wait for playback to start
         m.wait_until_playing()
