@@ -377,42 +377,38 @@ class MpvEvent(Structure):
     _fields_ = [('event_id', MpvEventID),
                 ('error', c_int),
                 ('reply_userdata', c_ulonglong),
-                ('data', c_void_p)]
+                ('_data', c_void_p)]
+
+    @property
+    def data(self):
+        dtype = {
+            MpvEventID.GET_PROPERTY_REPLY:     MpvEventProperty,
+            MpvEventID.PROPERTY_CHANGE:        MpvEventProperty
+            MpvEventID.LOG_MESSAGE:            MpvEventLogMessage,
+            MpvEventID.CLIENT_MESSAGE:         MpvEventClientMessage,
+            MpvEventID.START_FILE:             MpvEventStartFile,
+            MpvEventID.END_FILE:               MpvEventEndFile,
+            MpvEventID.HOOK:                   MpvEventHook,
+            MpvEventID.COMMAND_REPLY*          MpvEventCommand,
+            }.get(self.event_id)
+        return cast(self.data, POINTER(dtype)).contents.as_dict(decoder=decoder)
 
     def as_dict(self, decoder=identity_decoder):
-        dtype = {MpvEventID.END_FILE:               MpvEventEndFile,
-                MpvEventID.COMMAND_REPLY:           MpvEventCommand,
-                MpvEventID.PROPERTY_CHANGE:         MpvEventProperty,
-                MpvEventID.GET_PROPERTY_REPLY:      MpvEventProperty,
-                MpvEventID.LOG_MESSAGE:             MpvEventLogMessage,
-                MpvEventID.SCRIPT_INPUT_DISPATCH:   MpvEventScriptInputDispatch,
-                MpvEventID.CLIENT_MESSAGE:          MpvEventClientMessage
-            }.get(self.event_id.value, None)
-        return {'event_id': self.event_id.value,
-                'error': self.error,
-                'reply_userdata': self.reply_userdata,
-                'event': cast(self.data, POINTER(dtype)).contents.as_dict(decoder=decoder) if dtype else None}
+        out = cast(create_string_buffer(sizeof(MpvNode)), POINTER(MpvNode))
+        _mpv_event_to_node(out, pointer(self))
+        rv = out.contents.node_value(decoder=decoder)
+        _mpv_free_node_contents(out)
+        return rv
 
 class MpvEventProperty(Structure):
     _fields_ = [('name', c_char_p),
                 ('format', MpvFormat),
                 ('data', MpvNodeUnion)]
-    def as_dict(self, decoder=identity_decoder):
-        value = MpvNode.node_cast_value(self.data, self.format.value, decoder)
-        return {'name': self.name.decode('utf-8'),
-                'format': self.format,
-                'data': self.data,
-                'value': value}
 
 class MpvEventLogMessage(Structure):
     _fields_ = [('prefix', c_char_p),
                 ('level', c_char_p),
                 ('text', c_char_p)]
-
-    def as_dict(self, decoder=identity_decoder):
-        return { 'prefix': self.prefix.decode('utf-8'),
-                 'level':  self.level.decode('utf-8'),
-                 'text':   decoder(self.text).rstrip() }
 
 class MpvEventEndFile(Structure):
     _fields_ = [('reason', c_int),
@@ -430,29 +426,23 @@ class MpvEventEndFile(Structure):
     def value(self):
         return self.reason
 
-    def as_dict(self, decoder=identity_decoder):
-        return {'reason': self.reason, 'error': self.error}
+class MpvEventStartFile(Structure):
+    _fields_ = [('playlist_entry_id', c_ulonglong),]
 
 class MpvEventScriptInputDispatch(Structure):
     _fields_ = [('arg0', c_int),
                 ('type', c_char_p)]
 
-    def as_dict(self, decoder=identity_decoder):
-        pass # TODO
-
 class MpvEventClientMessage(Structure):
     _fields_ = [('num_args', c_int),
                 ('args', POINTER(c_char_p))]
 
-    def as_dict(self, decoder=identity_decoder):
-        return { 'args': [ self.args[i].decode('utf-8') for i in range(self.num_args) ] }
-
-
 class MpvEventCommand(Structure):
     _fields_ = [('result', MpvNode)]
 
-    def as_dict(self, decoder=identity_decoder):
-        return {'result': self.result.node_value(decoder)}
+class MpvEventHook(Structure):
+    _fields_ = [('name', c_char_p),
+                ('id', c_ulonglong),]
 
 
 StreamReadFn = CFUNCTYPE(c_int64, c_void_p, POINTER(c_char), c_uint64)
@@ -466,8 +456,8 @@ class StreamCallbackInfo(Structure):
                 ('read', StreamReadFn),
                 ('seek', StreamSeekFn),
                 ('size', StreamSizeFn),
-                ('close', StreamCloseFn), ]
-#                ('cancel', StreamCancelFn)]
+                ('close', StreamCloseFn),
+                ('cancel', StreamCancelFn)]
 
 StreamOpenFn = CFUNCTYPE(c_int, c_void_p, c_char_p, POINTER(StreamCallbackInfo))
 
@@ -865,8 +855,7 @@ class MPV(object):
     def _loop(self):
         for event in _event_generator(self._event_handle):
             try:
-                devent = event.as_dict(decoder=lazy_decoder) # copy data from ctypes
-                eid = devent['event_id']
+                eid = event.event_id.value
 
                 with self._event_handler_lock:
                     if eid == MpvEventID.SHUTDOWN:
@@ -876,26 +865,26 @@ class MPV(object):
                     callback(devent)
 
                 if eid == MpvEventID.PROPERTY_CHANGE:
-                    pc = devent['event']
-                    name, value, _fmt = pc['name'], pc['value'], pc['format']
+                    pc = event.data
+                    name, value, _fmt = pc.name, pc.value, pc.format
                     for handler in self._property_handlers[name]:
                         handler(name, value)
 
                 if eid == MpvEventID.LOG_MESSAGE and self._log_handler is not None:
-                    ev = devent['event']
-                    self._log_handler(ev['level'], ev['prefix'], ev['text'])
+                    ev = event.data
+                    self._log_handler(ev.level, ev.prefix, ev.text)
 
                 if eid == MpvEventID.CLIENT_MESSAGE:
                     # {'event': {'args': ['key-binding', 'foo', 'u-', 'g']}, 'reply_userdata': 0, 'error': 0, 'event_id': 16}
-                    target, *args = devent['event']['args']
+                    target, *args = event.data.args
                     if target in self._message_handlers:
                         self._message_handlers[target](*args)
 
                 if eid == MpvEventID.COMMAND_REPLY:
-                    key = devent['reply_userdata']
+                    key = event.reply_userdata
                     callback = self._command_reply_callbacks.pop(key, None)
                     if callback:
-                        callback(ErrorCode.exception_for_ec(devent['error']), devent['event']['result'])
+                        callback(ErrorCode.exception_for_ec(event.error), event.data.result)
 
                 if eid == MpvEventID.SHUTDOWN:
                     _mpv_destroy(self._event_handle)
@@ -1116,6 +1105,11 @@ class MPV(object):
                 future.set_result(callback(error, result))
             except Exception as e:
                 future.set_exception(e)
+
+        def abort():
+            _mpv_abort_async_command(self._event_handle, id(future))
+            del self._command_reply_callbacks[id(future)]
+        future.cancel = abort
 
         self._command_reply_callbacks[id(future)] = wrapper
 
@@ -1566,7 +1560,7 @@ class MPV(object):
                 types = [MpvEventID.from_str(t) if isinstance(t, str) else t for t in event_types] or MpvEventID.ANY
                 @wraps(callback)
                 def wrapper(event, *args, **kwargs):
-                    if event['event_id'] in types:
+                    if event.event_id.value in types:
                         callback(event, *args, **kwargs)
                 self._event_callbacks.append(wrapper)
                 wrapper.unregister_mpv_events = partial(self.unregister_event_callback, wrapper)
