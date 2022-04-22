@@ -282,14 +282,14 @@ class MpvEventID(c_int):
     SEEK                    = 20
     PLAYBACK_RESTART        = 21
     PROPERTY_CHANGE         = 22
-    EVENT_QUEUE_OVERFLOW    = 24
-    EVENT_HOOK              = 25
+    QUEUE_OVERFLOW          = 24
+    HOOK                    = 25
 
     ANY = ( SHUTDOWN, LOG_MESSAGE, GET_PROPERTY_REPLY, SET_PROPERTY_REPLY, COMMAND_REPLY, START_FILE, END_FILE,
             FILE_LOADED, CLIENT_MESSAGE, VIDEO_RECONFIG, AUDIO_RECONFIG, SEEK, PLAYBACK_RESTART, PROPERTY_CHANGE)
 
     def __repr__(self):
-        return _mpv_event_name(self.value).decode()
+        return f'<MpvEventID {self.value} (_mpv_event_name(self.value).decode("utf-8"))>'
 
     @classmethod
     def from_str(kls, s):
@@ -383,15 +383,15 @@ class MpvEvent(Structure):
     def data(self):
         dtype = {
             MpvEventID.GET_PROPERTY_REPLY:     MpvEventProperty,
-            MpvEventID.PROPERTY_CHANGE:        MpvEventProperty
+            MpvEventID.PROPERTY_CHANGE:        MpvEventProperty,
             MpvEventID.LOG_MESSAGE:            MpvEventLogMessage,
             MpvEventID.CLIENT_MESSAGE:         MpvEventClientMessage,
             MpvEventID.START_FILE:             MpvEventStartFile,
             MpvEventID.END_FILE:               MpvEventEndFile,
             MpvEventID.HOOK:                   MpvEventHook,
-            MpvEventID.COMMAND_REPLY*          MpvEventCommand,
-            }.get(self.event_id)
-        return cast(self.data, POINTER(dtype)).contents.as_dict(decoder=decoder)
+            MpvEventID.COMMAND_REPLY:          MpvEventCommand,
+            }.get(self.event_id.value)
+        return cast(self._data, POINTER(dtype)).contents if dtype else None
 
     def as_dict(self, decoder=identity_decoder):
         out = cast(create_string_buffer(sizeof(MpvNode)), POINTER(MpvNode))
@@ -400,15 +400,39 @@ class MpvEvent(Structure):
         _mpv_free_node_contents(out)
         return rv
 
+    def __str__(self):
+        d = self.data
+        return f'<{type(d).__name__} ({self.event_id.value}) err={self.error} p={self.reply_userdata:016x} d={self.as_dict()}>'
+
 class MpvEventProperty(Structure):
-    _fields_ = [('name', c_char_p),
+    _fields_ = [('_name', c_char_p),
                 ('format', MpvFormat),
                 ('data', MpvNodeUnion)]
 
+    @property
+    def name(self):
+        return self._name.decode("utf-8")
+
+    @property
+    def value(self):
+        return MpvNode.node_cast_value(self.data, self.format.value)
+
 class MpvEventLogMessage(Structure):
-    _fields_ = [('prefix', c_char_p),
-                ('level', c_char_p),
-                ('text', c_char_p)]
+    _fields_ = [('_prefix', c_char_p),
+                ('_level', c_char_p),
+                ('_text', c_char_p)]
+
+    @property
+    def prefix(self):
+        return self._prefix.decode("utf-8")
+
+    @property
+    def level(self):
+        return self._level.decode("utf-8")
+
+    @property
+    def text(self):
+        return self._text
 
 class MpvEventEndFile(Structure):
     _fields_ = [('reason', c_int),
@@ -421,29 +445,31 @@ class MpvEventEndFile(Structure):
     ERROR               = 4
     REDIRECT            = 5
 
-    # For backwards-compatibility
-    @property
-    def value(self):
-        return self.reason
-
 class MpvEventStartFile(Structure):
     _fields_ = [('playlist_entry_id', c_ulonglong),]
 
-class MpvEventScriptInputDispatch(Structure):
-    _fields_ = [('arg0', c_int),
-                ('type', c_char_p)]
-
 class MpvEventClientMessage(Structure):
-    _fields_ = [('num_args', c_int),
-                ('args', POINTER(c_char_p))]
+    _fields_ = [('_num_args', c_int),
+                ('_args', POINTER(c_char_p))]
+
+    @property
+    def args(self):
+        return [ self._args[i] for i in range(self._num_args) ]
 
 class MpvEventCommand(Structure):
-    _fields_ = [('result', MpvNode)]
+    _fields_ = [('_result', MpvNode)]
+
+    def result(self):
+        return self._result.node_value()
 
 class MpvEventHook(Structure):
-    _fields_ = [('name', c_char_p),
+    _fields_ = [('_name', c_char_p),
                 ('id', c_ulonglong),]
 
+    
+    @property
+    def name(self):
+        return self._name.decode("utf-8")
 
 StreamReadFn = CFUNCTYPE(c_int64, c_void_p, POINTER(c_char), c_uint64)
 StreamSeekFn = CFUNCTYPE(c_int64, c_void_p, c_int64)
@@ -856,13 +882,15 @@ class MPV(object):
         for event in _event_generator(self._event_handle):
             try:
                 eid = event.event_id.value
+                if not eid == MpvEventID.LOG_MESSAGE:
+                    print(event)
 
                 with self._event_handler_lock:
                     if eid == MpvEventID.SHUTDOWN:
                         self._core_shutdown = True
 
                 for callback in self._event_callbacks:
-                    callback(devent)
+                    callback(event)
 
                 if eid == MpvEventID.PROPERTY_CHANGE:
                     pc = event.data
@@ -877,6 +905,7 @@ class MPV(object):
                 if eid == MpvEventID.CLIENT_MESSAGE:
                     # {'event': {'args': ['key-binding', 'foo', 'u-', 'g']}, 'reply_userdata': 0, 'error': 0, 'event_id': 16}
                     target, *args = event.data.args
+                    target = target.decode("utf-8")
                     if target in self._message_handlers:
                         self._message_handlers[target](*args)
 
@@ -1659,6 +1688,10 @@ class MPV(object):
         self.command('enable-section', binding_name, 'allow-hide-cursor+allow-vo-dragging')
 
     def _handle_key_binding_message(self, binding_name, key_state, key_name=None, key_char=None):
+        binding_name = binding_name.decode('utf-8')
+        key_state = key_state.decode('utf-8')
+        key_name = key_name.decode('utf-8') if key_name is not None else None
+        key_char = key_char.decode('utf-8') if key_char is not None else None
         self._key_binding_handlers[binding_name](key_state, key_name, key_char)
 
     def unregister_key_binding(self, keydef):

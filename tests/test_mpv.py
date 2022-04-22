@@ -243,7 +243,7 @@ class ObservePropertyTest(MpvTestCase):
 
         time.sleep(0.1) #couple frames
         m.terminate() # needed for synchronization of event thread
-        handler.assert_has_calls([mock.call('vid', 'auto')])
+        handler.assert_has_calls([mock.call('vid', b'auto')])
 
     def test_property_observer_decorator(self):
         handler = mock.Mock()
@@ -380,7 +380,7 @@ class KeyBindingTest(MpvTestCase):
     def test_wait_for_property_error_forwarding(self):
         def run():
             nonlocal self
-            self.m.wait_until_playing()
+            self.m.wait_until_playing(timeout=2)
             self.m.mute = True
         t = threading.Thread(target=run, daemon=True)
         t.start()
@@ -396,7 +396,7 @@ class KeyBindingTest(MpvTestCase):
     def test_register_simple_decorator_fun_chaining(self):
         self.m.loop = 'inf'
         self.m.play(TESTVID)
-        self.m.wait_until_playing()
+        self.m.wait_until_playing(timeout=2)
 
         handler1, handler2 = mock.Mock(), mock.Mock()
 
@@ -412,7 +412,7 @@ class KeyBindingTest(MpvTestCase):
         self.assertEqual(reg_test_fun.mpv_key_bindings, ['b', 'a'])
 
         def keypress_and_sync(key):
-            with self.m.prepare_and_wait_for_event('client_message'):
+            with self.m.prepare_and_wait_for_event('client_message', timeout=2):
                 self.m.keypress(key)
 
         keypress_and_sync('a')
@@ -610,7 +610,7 @@ class TestLifecycle(unittest.TestCase):
             handler()
         t = threading.Thread(target=run, daemon=True)
         t.start()
-        m.wait_until_playing()
+        m.wait_until_playing(timeout=2)
         m.mute = True
         t.join()
         m.terminate()
@@ -682,7 +682,7 @@ class TestLifecycle(unittest.TestCase):
         m = mpv.MPV(vo=testvo, log_handler=handler)
         m.play(TESTVID)
         # Wait for playback to start
-        m.wait_until_playing()
+        m.wait_until_playing(timeout=2)
         m.command("print-text", 'This is a python-mpv test')
         m.wait_for_playback()
         m.terminate()
@@ -713,7 +713,7 @@ class CommandTests(MpvTestCase):
         time.sleep(0.5)
 
         self.m.loadfile(TESTVID)
-        self.m.wait_until_playing()
+        self.m.wait_until_playing(timeout=2)
         self.m.sub_add(TESTSRT)
 
         self.m.wait_for_playback()
@@ -727,7 +727,7 @@ class CommandTests(MpvTestCase):
         time.sleep(0.5)
 
         self.m.loadfile(TESTVID)
-        self.m.wait_until_playing()
+        self.m.wait_until_playing(timeout=2)
         self.m.command_async('sub_add', TESTSRT, callback=callback)
         reply = self.m.command_async('expand-text', 'test ${mute}')
         assert reply.result() == 'test no'
