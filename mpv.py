@@ -459,13 +459,12 @@ class MpvEventClientMessage(Structure):
 class MpvEventCommand(Structure):
     _fields_ = [('_result', MpvNode)]
 
-    @property
-    def result_raw(self):
-        return self._result.node_value()
+    def unpack(self, decoder=identity_decoder):
+        return self._result.node_value(decoder=decoder)
 
     @property
     def result(self):
-        return self._result.node_value(decoder=lazy_decoder)
+        return self.unpack()
 
 class MpvEventHook(Structure):
     _fields_ = [('_name', c_char_p),
@@ -918,7 +917,7 @@ class MPV(object):
                     key = event.reply_userdata
                     callback = self._command_reply_callbacks.pop(key, None)
                     if callback:
-                        callback(ErrorCode.exception_for_ec(event.error), event.data.result)
+                        callback(ErrorCode.exception_for_ec(event.error), event.data)
 
                 if eid == MpvEventID.SHUTDOWN:
                     _mpv_destroy(self._event_handle)
@@ -1111,7 +1110,7 @@ class MPV(object):
         args = _create_null_term_cmd_arg_array(name, args)
         _mpv_command(self.handle, args)
 
-    def command_async(self, name, *args, callback=None, **kwargs):
+    def command_async(self, name, *args, callback=None, decoder=lazy_decoder, **kwargs):
         """Same as mpv_command, but run the command asynchronously. If you provide a callback, that callback will be
         called after completion or on error. This method returns a future that evaluates to the result of the callback
         (if given), and the result of the libmpv call otherwise.
@@ -1136,6 +1135,7 @@ class MPV(object):
 
         def wrapper(error, result):
             try:
+                result = result.unpack(decoder)
                 future.set_result(callback(error, result))
             except Exception as e:
                 future.set_exception(e)
