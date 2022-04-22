@@ -29,12 +29,13 @@ import re
 import traceback
 
 if os.name == 'nt':
-    dll = ctypes.util.find_library('mpv-2.dll')
+    # Note: mpv-2.dll with API version 2 corresponds to mpv v0.35.0. Most things should work with the fallback, too.
+    dll = ctypes.util.find_library('mpv-2.dll') or ctypes.util.find_library('mpv-1.dll')
     if dll is None:
-        raise OSError('Cannot find mpv-2.dll in your system %PATH%. One way to deal with this is to ship mpv-2.dll '
-                      'with your script and put the directory your script is in into %PATH% before "import mpv": '
-                      'os.environ["PATH"] = os.path.dirname(__file__) + os.pathsep + os.environ["PATH"] '
-                      'If mpv-2.dll is located elsewhere, you can add that path to os.environ["PATH"].')
+        raise OSError('Cannot find mpv-1.dll or mpv-2.dll in your system %PATH%. One way to deal with this is to ship '
+                      'the dll with your script and put the directory your script is in into %PATH% before '
+                      '"import mpv": os.environ["PATH"] = os.path.dirname(__file__) + os.pathsep + os.environ["PATH"] '
+                      'If mpv-1.dll is located elsewhere, you can add that path to os.environ["PATH"].')
     backend = CDLL(dll)
     fs_enc = 'utf-8'
 else:
@@ -62,10 +63,6 @@ class MpvHandle(c_void_p):
 
 class MpvRenderCtxHandle(c_void_p):
     pass
-
-class MpvOpenGLCbContext(c_void_p):
-    pass
-
 
 class PropertyUnavailableError(AttributeError):
     pass
@@ -279,34 +276,20 @@ class MpvEventID(c_int):
     START_FILE              = 6
     END_FILE                = 7
     FILE_LOADED             = 8
-    TRACKS_CHANGED          = 9
-    TRACK_SWITCHED          = 10
-    IDLE                    = 11
-    PAUSE                   = 12
-    UNPAUSE                 = 13
-    TICK                    = 14
-    SCRIPT_INPUT_DISPATCH   = 15
     CLIENT_MESSAGE          = 16
     VIDEO_RECONFIG          = 17
     AUDIO_RECONFIG          = 18
-    METADATA_UPDATE         = 19
     SEEK                    = 20
     PLAYBACK_RESTART        = 21
     PROPERTY_CHANGE         = 22
-    CHAPTER_CHANGE          = 23
     EVENT_QUEUE_OVERFLOW    = 24
     EVENT_HOOK              = 25
 
     ANY = ( SHUTDOWN, LOG_MESSAGE, GET_PROPERTY_REPLY, SET_PROPERTY_REPLY, COMMAND_REPLY, START_FILE, END_FILE,
-            FILE_LOADED, TRACKS_CHANGED, TRACK_SWITCHED, IDLE, PAUSE, UNPAUSE, TICK, SCRIPT_INPUT_DISPATCH,
-            CLIENT_MESSAGE, VIDEO_RECONFIG, AUDIO_RECONFIG, METADATA_UPDATE, SEEK, PLAYBACK_RESTART, PROPERTY_CHANGE,
-            CHAPTER_CHANGE )
+            FILE_LOADED, CLIENT_MESSAGE, VIDEO_RECONFIG, AUDIO_RECONFIG, SEEK, PLAYBACK_RESTART, PROPERTY_CHANGE)
 
     def __repr__(self):
-        return ['NONE', 'SHUTDOWN', 'LOG_MESSAGE', 'GET_PROPERTY_REPLY', 'SET_PROPERTY_REPLY', 'COMMAND_REPLY',
-                'START_FILE', 'END_FILE', 'FILE_LOADED', 'TRACKS_CHANGED', 'TRACK_SWITCHED', 'IDLE', 'PAUSE', 'UNPAUSE',
-                'TICK', 'SCRIPT_INPUT_DISPATCH', 'CLIENT_MESSAGE', 'VIDEO_RECONFIG', 'AUDIO_RECONFIG',
-                'METADATA_UPDATE', 'SEEK', 'PLAYBACK_RESTART', 'PROPERTY_CHANGE', 'CHAPTER_CHANGE'][self.value]
+        return _mpv_event_name(self.value).decode()
 
     @classmethod
     def from_str(kls, s):
@@ -526,9 +509,6 @@ def notnull_errcheck(res, func, *args):
 
 ec_errcheck = ErrorCode.raise_for_ec
 
-def _handle_gl_func(name, args=[], restype=None, deprecated=False):
-    _handle_func(name, args, restype, errcheck=None, ctx=MpvOpenGLCbContext, deprecated=deprecated)
-
 backend.mpv_client_api_version.restype = c_ulong
 def _mpv_client_api_version():
     ver = backend.mpv_client_api_version()
@@ -544,6 +524,7 @@ backend.mpv_create.restype = MpvHandle
 _mpv_create = backend.mpv_create
 
 _handle_func('mpv_create_client',           [c_char_p],                                 MpvHandle, notnull_errcheck)
+_handle_func('mpv_create_weak_client',      [c_char_p],                                 MpvHandle, notnull_errcheck)
 _handle_func('mpv_client_name',             [],                                         c_char_p, errcheck=None)
 _handle_func('mpv_initialize',              [],                                         c_int, ec_errcheck)
 _handle_func('mpv_destroy',                 [],                                         None, errcheck=None)
@@ -572,6 +553,7 @@ _handle_func('mpv_observe_property',        [c_ulonglong, c_char_p, MpvFormat], 
 _handle_func('mpv_unobserve_property',      [c_ulonglong],                              c_int, ec_errcheck)
 
 _handle_func('mpv_event_name',              [c_int],                                    c_char_p, errcheck=None, ctx=None)
+_handle_func('mpv_event_to_node',           [POINTER(MpvNode), POINTER(MpvEvent)],      c_int, ec_errcheck, ctx=None)
 _handle_func('mpv_error_string',            [c_int],                                    c_char_p, errcheck=None, ctx=None)
 
 _handle_func('mpv_request_event',           [MpvEventID, c_int],                        c_int, ec_errcheck)
@@ -579,7 +561,6 @@ _handle_func('mpv_request_log_messages',    [c_char_p],                         
 _handle_func('mpv_wait_event',              [c_double],                                 POINTER(MpvEvent), errcheck=None)
 _handle_func('mpv_wakeup',                  [],                                         None, errcheck=None)
 _handle_func('mpv_set_wakeup_callback',     [WakeupCallback, c_void_p],                 None, errcheck=None)
-_handle_func('mpv_get_wakeup_pipe',         [],                                         c_int, errcheck=None)
 
 _handle_func('mpv_stream_cb_add_ro',        [c_char_p, c_void_p, StreamOpenFn],         c_int, ec_errcheck)
 
@@ -591,6 +572,7 @@ _handle_func('mpv_render_context_update',               [],                     
 _handle_func('mpv_render_context_render',               [POINTER(MpvRenderParam)],                                  c_int, ec_errcheck,     ctx=MpvRenderCtxHandle)
 _handle_func('mpv_render_context_report_swap',          [],                                                         None, errcheck=None,    ctx=MpvRenderCtxHandle)
 _handle_func('mpv_render_context_free',                 [],                                                         None, errcheck=None,    ctx=MpvRenderCtxHandle)
+
 
 def _mpv_coax_proptype(value, proptype=str):
     """Intelligently coax the given python value into something that can be understood as a proptype property."""
