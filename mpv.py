@@ -711,8 +711,8 @@ class _DecoderPropertyProxy(_PropertyProxy):
         setattr(self.mpv, _py_to_mpv(name), value)
 
 class GeneratorStream:
-    """Transform a python generator into an mpv-compatible stream object. This only supports size() and read(), and
-    does not support seek(), close() or cancel().
+    """Transform a python generator into an mpv-compatible stream object. The total size of the file can be indicated to
+    mpv using the size argument to __init__. Seeking is not supported.
     """
 
     def __init__(self, generator_fun, size=None):
@@ -742,7 +742,6 @@ class GeneratorStream:
 
     def cancel(self):
         self._read_iter = iter([]) # make next read() call return EOF
-        # TODO?
 
 
 class ImageOverlay:
@@ -1746,16 +1745,16 @@ class MPV(object):
                     return read # non-empty bytes object with input
                     return b'' # empty byte object signals permanent EOF
 
-                def seek(self, pos):
+                def seek(self, pos): # optional
                     return new_offset # integer with new byte offset. The new offset may be before the requested offset
                     in case an exact seek is inconvenient.
 
-                def close(self):
+                def close(self): # optional
                     ...
 
-                # def cancel(self): (future API versions only)
-                #     Abort a running read() or seek() operation
-                #     ...
+                def cancel(self): # optional
+                    Abort a running read() or seek() operation
+                    ...
 
         """
 
@@ -1782,10 +1781,8 @@ class MPV(object):
                     seek = cb_info.contents.seek = StreamSeekFn(lambda _userdata, offx: frontend.seek(offx))
                 if hasattr(frontend, 'size') and frontend.size is not None:
                     size = cb_info.contents.size = StreamSizeFn(lambda _userdata: frontend.size)
-
-                # Future API versions only
-                # if hasattr(frontend, 'cancel'):
-                #     cb_info.contents.cancel = StreamCancelFn(lambda _userdata: frontend.cancel())
+                if hasattr(frontend, 'cancel'):
+                    cancel = cb_info.contents.cancel = StreamCancelFn(lambda _userdata: frontend.cancel())
 
                 # keep frontend and callbacks in memory forever (TODO)
                 frontend._registered_callbacks = [read, close, seek, size, cancel]
