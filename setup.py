@@ -9,7 +9,7 @@ setup(
     url = 'https://github.com/jaseg/python-mpv',
     author = 'jaseg',
     author_email = 'github@jaseg.net',
-    license = 'AGPLv3+',
+    license = 'GPLv3+',
     extras_require = {
         'screenshot_raw': ['Pillow']
         },
@@ -19,7 +19,7 @@ setup(
         'multimedia'],
     python_requires='>=3.7',
     classifiers = [
-        'Development Status :: 5 - Production / Stable',
+        'Development Status :: 5 - Production/Stable',
         'Environment :: X11 Applications',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)',
