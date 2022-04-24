@@ -5,7 +5,7 @@ from pathlib import Path
 
 setup(
     name = 'python-mpv',
-    version = 'v1.0.1',
+    version = '1.0.1',
     py_modules = ['mpv'],
     description = 'A python interface to the mpv media player',
     long_description = (Path(__file__).parent / 'README.rst').read_text(),
