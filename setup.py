@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 
 from setuptools import setup
+from pathlib import Path
+
 setup(
     name = 'python-mpv',
-    version = 'v1.0.0',
+    version = 'v1.0.1',
     py_modules = ['mpv'],
     description = 'A python interface to the mpv media player',
+    long_description = (Path(__file__).parent / 'README.rst').read_text(),
+    long_description_content_type = 'text/x-rst',
     url = 'https://github.com/jaseg/python-mpv',
     author = 'jaseg',
     author_email = 'github@jaseg.net',
