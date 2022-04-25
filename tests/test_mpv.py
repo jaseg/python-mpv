@@ -659,7 +659,7 @@ class TestLifecycle(unittest.TestCase):
                 m.terminate()
         self.disp.stop()
 
-    def test_wait_for_prooperty_event_overflow(self):
+    def test_wait_for_property_event_overflow(self):
         self.disp = Xvfb()
         self.disp.start()
         handler = mock.Mock()
