@@ -13,7 +13,7 @@ setup(
     url = 'https://github.com/jaseg/python-mpv',
     author = 'jaseg',
     author_email = 'github@jaseg.net',
-    license = 'GPLv3+',
+    license = 'GPLv2+',
     extras_require = {
         'screenshot_raw': ['Pillow']
         },
