@@ -241,7 +241,8 @@ The easiest way to load custom subtitles from a file is to pass the ``--sub-file
     import mpv
 
     player = mpv.MPV()
-    player.play('test.webm', sub_file='test.srt')
+    player.loadfile('test.webm', sub_file='test.srt')
+    player.wait_for_playback()
 
 Note that you can also pass many other options to ``loadfile``. See the mpv docs for details.
 
