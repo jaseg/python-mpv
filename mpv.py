@@ -1478,13 +1478,13 @@ class MPV(object):
         function decorator if no handler is given.
 
         To unregister the observer, call either of ``mpv.unobserve_property(name, handler)``,
-        ``mpv.unobserve_all_properties(handler)`` or the handler's ``unregister_mpv_properties`` attribute::
+        ``mpv.unobserve_all_properties(handler)`` or the handler's ``unobserve_mpv_properties`` attribute::
 
-            @player.observe_property('volume')
-            def my_handler(new_volume, *):
-                print("It's loud!", volume)
+            @player.property_observer('volume')
+            def my_handler(property_name, new_volume):
+                print("It's loud!", new_volume)
 
-            my_handler.unregister_mpv_properties()
+            my_handler.unobserve_mpv_properties()
 
         exit_handler is a function taking no arguments that is called when the underlying mpv handle is terminated (e.g.
         from calling MPV.terminate() or issuing a "quit" input command).
