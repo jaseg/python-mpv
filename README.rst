@@ -34,7 +34,7 @@ into ctypes, which is different to the one Windows uses internally. Consult `thi
 
 Python >= 3.7 (officially)
 ..........................
-The ``master`` branch officially only supports recent python releases (3.5 onwards), but there is the somewhat outdated
+The ``main`` branch officially only supports recent python releases (3.5 onwards), but there is the somewhat outdated
 but functional `py2compat branch`_ providing Python 2 compatibility.
 
 .. _`py2compat branch`: https://github.com/jaseg/python-mpv/tree/py2compat
@@ -64,7 +64,7 @@ Usage
     player.play('https://youtu.be/DOmdB7D-pUU')
     player.wait_for_playback()
 
-python-mpv mostly exposes mpv's built-in API to python, adding only some porcelain on top. Most "`input commands <https://mpv.io/manual/master/#list-of-input-commands>`_" are mapped to methods of the MPV class. Check out these methods and their docstrings in `the source <https://github.com/jaseg/python-mpv/blob/master/mpv.py>`__ for things you can do. Additional controls and status information are exposed through `MPV properties <https://mpv.io/manual/master/#properties>`_. These can be accessed like ``player.metadata``, ``player.fullscreen`` and ``player.loop_playlist``.
+python-mpv mostly exposes mpv's built-in API to python, adding only some porcelain on top. Most "`input commands <https://mpv.io/manual/master/#list-of-input-commands>`_" are mapped to methods of the MPV class. Check out these methods and their docstrings in `the source <https://github.com/jaseg/python-mpv/blob/main/mpv.py>`__ for things you can do. Additional controls and status information are exposed through `MPV properties <https://mpv.io/manual/master/#properties>`_. These can be accessed like ``player.metadata``, ``player.fullscreen`` and ``player.loop_playlist``.
 
 Threading
 ~~~~~~~~~
@@ -395,7 +395,7 @@ python-mpv inherits the underlying libmpv's license, which can be either GPLv2 o
 For details, see `the mpv copyright page`_.
 
 .. _`PEP 8`: https://www.python.org/dev/peps/pep-0008/
-.. _`mpv.py`: https://raw.githubusercontent.com/jaseg/python-mpv/master/mpv.py
+.. _`mpv.py`: https://raw.githubusercontent.com/jaseg/python-mpv/main/mpv.py
 .. _cosven: https://github.com/cosven
 .. _Robozman: https://gitlab.com/robozman
 .. _dfaker: https://github.com/dfaker
