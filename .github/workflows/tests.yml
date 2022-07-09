@@ -53,3 +53,38 @@ jobs:
           function execute() { echo -e "\033[0;34m$*\033[0m"; "$@"; }
           execute source venv/bin/activate
           execute xvfb-run python -m pytest
+
+  test-windows:
+    runs-on: windows-latest
+    name: 'Windows - Python'
+    strategy:
+      matrix:
+        python-version: [ '3.10' ] # '3.7', '3.8', '3.9'
+    steps:
+      - uses: actions/checkout@v3
+      - name: 'Install Python'
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: 'Setup Build Environment'
+        run: |
+          function execute() { echo -e "\033[0;34m$*\033[0m"; "$@"; }
+          execute python -m venv venv
+          execute source venv/Scripts/activate
+          execute python -m pip install --upgrade pip
+          execute python -m pip install wheel
+          execute python -m pip install -r tests/requirements.txt
+      - name: 'Install libmpv'
+        run: |
+          function execute() { echo -e "\033[0;34m$*\033[0m"; "$@"; }
+          
+          ARTIFACT="mpv-dev-x86_64-20220619-git-c1a46ec.7z"
+          URL="https://sourceforge.net/projects/mpv-player-windows/files/libmpv/$ARTIFACT"
+          
+          execute curl -L -O "$URL"
+          execute 7z x "$ARTIFACT"
+      - name: 'Run Python Tests'
+        run: |
+          function execute() { echo -e "\033[0;34m$*\033[0m"; "$@"; }
+          execute source venv/Scripts/activate
+          execute python -m pytest
