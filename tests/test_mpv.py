@@ -18,18 +18,11 @@
 
 import unittest
 from unittest import mock
-import math
 import threading
 from contextlib import contextmanager
-from functools import wraps
-import gc
 import os.path
 import os
-import sys
 import time
-import io
-import platform
-import ctypes
 from concurrent.futures import Future
 
 os.environ["PATH"] = os.path.dirname(__file__) + os.pathsep + os.environ["PATH"]
