@@ -17,8 +17,7 @@ jobs:
     name: 'Linux - Python'
     strategy:
       matrix:
-        python-version: [ '3.10' ] # '3.7', '3.8', '3.9'
-    name: 'Python'
+        python-version: [ '3.7', '3.8', '3.9', '3.10' ]
     env:
       DISPLAY: :0
       PY_MPV_SKIP_TESTS: >-
