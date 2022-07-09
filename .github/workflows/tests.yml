@@ -17,7 +17,8 @@ jobs:
     name: 'Linux - Python'
     strategy:
       matrix:
-        python-version: [ '3.7', '3.8', '3.9', '3.10' ]
+        # '3.7' -> E   ImportError: cannot import name 'InvalidStateError' from 'concurrent.futures' (/opt/hostedtoolcache/Python/3.7.13/x64/lib/python3.7/concurrent/futures/__init__.py)
+        python-version: [ '3.8', '3.9', '3.10' ]
     env:
       DISPLAY: :0
       PY_MPV_SKIP_TESTS: >-
