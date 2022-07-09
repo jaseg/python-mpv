@@ -49,5 +49,5 @@ jobs:
       - name: 'Run Python Tests'
         run: |
           function execute() { echo -e "\033[0;34m$*\033[0m"; "$@"; }
-          source venv/bin/activate
-          execute python -m pytest
+          execute source venv/bin/activate
+          execute xvfb-run python -m pytest
