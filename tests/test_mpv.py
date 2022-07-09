@@ -812,7 +812,3 @@ class RegressionTests(MpvTestCase):
         m.slang = 'ru'
         m.terminate() # needed for synchronization of event thread
         handler.assert_has_calls([mock.call('slang', ['jp']), mock.call('slang', ['ru'])])
-
-
-if __name__ == '__main__':
-    unittest.main()
