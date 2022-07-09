@@ -12,15 +12,15 @@ defaults:
 
 
 jobs:
-  build:
-    env:
-      DISPLAY: :0
   test-python:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
         python-version: [ '3.10' ] # '3.7', '3.8', '3.9'
     name: 'Python'
+    build:
+      env:
+        DISPLAY: :0
     steps:
       - uses: actions/checkout@v2
       - name: 'Install Python'
