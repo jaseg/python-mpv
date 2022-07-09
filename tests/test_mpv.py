@@ -652,27 +652,24 @@ class TestLifecycle(unittest.TestCase):
                 m.terminate()
         self.disp.stop()
 
-    def test_wait_for_property_event_overflow(self):
-        self.disp = Xvfb()
-        self.disp.start()
-        handler = mock.Mock()
-        m = mpv.MPV(vo=testvo)
-        m.play(TESTVID)
-        with self.assertRaises(mpv.EventOverflowError):
-            # level_sensitive=false needed to prevent get_property on dead
-            # handle
-            with m.prepare_and_wait_for_property('mute', cond=lambda val: time.sleep(0.001)):
-                for i in range(10000):
-                    try:
-                        # We really have to try hard to fill up the queue here. Simple async commands will not work,
-                        # since then command_async will throw a memory error first. Property changes also do not work,
-                        # since they are only processsed when the event loop is idle. This here works reliably.
-                        m.command_async('script-message', 'foo', 'bar')
-                    except:
-                        pass
-        self.disp.stop()
-
-
+    # def test_wait_for_property_event_overflow(self):
+    #     self.disp = Xvfb()
+    #     self.disp.start()
+    #     m = mpv.MPV(vo=testvo)
+    #     m.play(TESTVID)
+    #     with self.assertRaises(mpv.EventOverflowError):
+    #         # level_sensitive=false needed to prevent get_property on dead
+    #         # handle
+    #         with m.prepare_and_wait_for_property('mute', cond=lambda val: time.sleep(0.001)):
+    #             for i in range(10000):
+    #                 try:
+    #                     # We really have to try hard to fill up the queue here. Simple async commands will not work,
+    #                     # since then command_async will throw a memory error first. Property changes also do not work,
+    #                     # since they are only processsed when the event loop is idle. This here works reliably.
+    #                     m.command_async('script-message', 'foo', 'bar')
+    #                 except:
+    #                     pass
+    #     self.disp.stop()
 
     def test_wait_for_event_shutdown(self):
         self.disp = Xvfb()
