@@ -60,7 +60,7 @@ jobs:
     name: 'Windows - Python'
     strategy:
       matrix:
-        python-version: [ '3.10' ] # '3.7', '3.8', '3.9'
+        python-version: [ '3.8', '3.9', '3.10' ]
     steps:
       - uses: actions/checkout@v3
       - name: 'Install Python'
@@ -75,7 +75,7 @@ jobs:
           execute python -m pip install --upgrade pip
           execute python -m pip install wheel
           execute python -m pip install -r tests/requirements.txt
-      - name: 'Install libmpv'
+      - name: 'Provide libmpv'
         run: |
           function execute() { echo -e "\033[0;34m$*\033[0m"; "$@"; }
           
