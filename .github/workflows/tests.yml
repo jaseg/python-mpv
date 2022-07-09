@@ -26,10 +26,6 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
-      - name: 'Install pip'
-        run: |
-          function execute() { echo -e "\033[0;34m$*\033[0m"; "$@"; }
-          execute python -m pip install --upgrade pip
       - name: 'Update Packages'
         run: |
           function execute() { echo -e "\033[0;34m$*\033[0m"; "$@"; }
@@ -47,6 +43,7 @@ jobs:
           function execute() { echo -e "\033[0;34m$*\033[0m"; "$@"; }
           execute python -m venv venv
           execute source venv/bin/activate
+          execute python -m pip install --upgrade pip
           execute python -m pip install wheel
           execute python -m pip install -r tests/requirements.txt
       - name: 'Run Python Tests'
