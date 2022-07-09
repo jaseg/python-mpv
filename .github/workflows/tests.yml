@@ -20,6 +20,8 @@ jobs:
     name: 'Python'
     env:
       DISPLAY: :0
+      PY_MPV_SKIP_TESTS: >-
+        test_wait_for_property_event_overflow
     steps:
       - uses: actions/checkout@v2
       - name: 'Install Python'
