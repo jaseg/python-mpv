@@ -43,11 +43,13 @@ TESTVID = os.path.join(os.path.dirname(__file__), 'test.webm')
 TESTSRT = os.path.join(os.path.dirname(__file__), 'sub_test.srt')
 MPV_ERRORS = [ l(ec) for ec, l in mpv.ErrorCode.EXCEPTION_DICT.items() if l ]
 
+
 def timed_print():
     start_time = time.time()
     def do_print(level, prefix, text):
         td = time.time() - start_time
         print('{:.3f} [{}] {}: {}'.format(td, level, prefix, text), flush=True)
+
 
 class MpvTestCase(unittest.TestCase):
     def setUp(self):
@@ -58,6 +60,7 @@ class MpvTestCase(unittest.TestCase):
     def tearDown(self):
         self.m.terminate()
         self.disp.stop()
+
 
 class TestProperties(MpvTestCase):
     @contextmanager
@@ -288,6 +291,7 @@ class ObservePropertyTest(MpvTestCase):
             mock.call('slang', ['ru'])],
             any_order=True)
 
+
 class KeyBindingTest(MpvTestCase):
     def test_register_direct_cmd(self):
         self.m.register_key_binding('a', 'playlist-clear')
@@ -434,6 +438,7 @@ class KeyBindingTest(MpvTestCase):
         handler1.assert_has_calls([])
         handler2.assert_has_calls([ mock.call() ])
 
+
 class TestStreams(unittest.TestCase):
     def test_python_stream(self):
         handler = mock.Mock()
@@ -528,6 +533,7 @@ class TestStreams(unittest.TestCase):
 
         m.terminate()
         disp.stop()
+
 
 class TestLifecycle(unittest.TestCase):
     def test_create_destroy(self):
@@ -754,7 +760,6 @@ class CommandTests(MpvTestCase):
         handler.assert_any_call('sub-text', 'This is\na subtitle test.')
         handler.assert_any_call('sub-text', 'This is the second subtitle line.')
         callback.assert_any_call(None, None)
-
 
 
 class RegressionTests(MpvTestCase):
