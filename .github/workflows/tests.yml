@@ -12,6 +12,9 @@ defaults:
 
 
 jobs:
+  build:
+    env:
+      DISPLAY: :0
   test-python:
     runs-on: ubuntu-22.04
     strategy:
@@ -36,6 +39,10 @@ jobs:
         run: |
           function execute() { echo -e "\033[0;34m$*\033[0m"; "$@"; }
           execute sudo apt install -y libmpv1 xvfb
+      - name: 'Start Xvfb'
+        run: |
+          echo -e "\033[0;34msudo /usr/bin/Xvfb $DISPLAY -screen 0 1920x1080x24 &\033[0m";
+          sudo /usr/bin/Xvfb $DISPLAY -screen 0 1920x1080x24 &
       - name: 'Create Virtual Environment'
         run: |
           function execute() { echo -e "\033[0;34m$*\033[0m"; "$@"; }
