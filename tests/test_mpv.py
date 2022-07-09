@@ -625,7 +625,6 @@ class TestLifecycle(unittest.TestCase):
     def test_wait_for_event(self):
         self.disp = Xvfb()
         self.disp.start()
-        handler = mock.Mock()
         m = mpv.MPV(vo=testvo)
         m.play(TESTVID)
         result = Future()
@@ -648,7 +647,6 @@ class TestLifecycle(unittest.TestCase):
     def test_wait_for_property_shutdown(self):
         self.disp = Xvfb()
         self.disp.start()
-        handler = mock.Mock()
         m = mpv.MPV(vo=testvo)
         m.play(TESTVID)
         with self.assertRaises(mpv.ShutdownError):
@@ -690,7 +688,6 @@ class TestLifecycle(unittest.TestCase):
     def test_wait_for_shutdown(self):
         self.disp = Xvfb()
         self.disp.start()
-        handler = mock.Mock()
         m = mpv.MPV(vo=testvo)
         m.play(TESTVID)
         with self.assertRaises(mpv.ShutdownError):
