@@ -42,6 +42,7 @@ else:
 TESTVID = os.path.join(os.path.dirname(__file__), 'test.webm')
 TESTSRT = os.path.join(os.path.dirname(__file__), 'sub_test.srt')
 MPV_ERRORS = [ l(ec) for ec, l in mpv.ErrorCode.EXCEPTION_DICT.items() if l ]
+SKIP_TESTS = os.environ.get('PY_MPV_SKIP_TESTS', '').split()
 
 
 def timed_print():
@@ -656,24 +657,25 @@ class TestLifecycle(unittest.TestCase):
                 m.terminate()
         self.disp.stop()
 
-    # def test_wait_for_property_event_overflow(self):
-    #     self.disp = Xvfb()
-    #     self.disp.start()
-    #     m = mpv.MPV(vo=testvo)
-    #     m.play(TESTVID)
-    #     with self.assertRaises(mpv.EventOverflowError):
-    #         # level_sensitive=false needed to prevent get_property on dead
-    #         # handle
-    #         with m.prepare_and_wait_for_property('mute', cond=lambda val: time.sleep(0.001)):
-    #             for i in range(10000):
-    #                 try:
-    #                     # We really have to try hard to fill up the queue here. Simple async commands will not work,
-    #                     # since then command_async will throw a memory error first. Property changes also do not work,
-    #                     # since they are only processsed when the event loop is idle. This here works reliably.
-    #                     m.command_async('script-message', 'foo', 'bar')
-    #                 except:
-    #                     pass
-    #     self.disp.stop()
+    @unittest.skipIf('test_wait_for_property_event_overflow' in SKIP_TESTS, reason="kills X-Server first")
+    def test_wait_for_property_event_overflow(self):
+        self.disp = Xvfb()
+        self.disp.start()
+        m = mpv.MPV(vo=testvo)
+        m.play(TESTVID)
+        with self.assertRaises(mpv.EventOverflowError):
+            # level_sensitive=false needed to prevent get_property on dead
+            # handle
+            with m.prepare_and_wait_for_property('mute', cond=lambda val: time.sleep(0.001)):
+                for i in range(10000):
+                    try:
+                        # We really have to try hard to fill up the queue here. Simple async commands will not work,
+                        # since then command_async will throw a memory error first. Property changes also do not work,
+                        # since they are only processsed when the event loop is idle. This here works reliably.
+                        m.command_async('script-message', 'foo', 'bar')
+                    except:
+                        pass
+        self.disp.stop()
 
     def test_wait_for_event_shutdown(self):
         self.disp = Xvfb()
