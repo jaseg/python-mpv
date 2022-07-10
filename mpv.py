@@ -1390,7 +1390,7 @@ class MPV(object):
         """Mapped mpv print-text command, see man mpv(1)."""
         self.command('print-text', text)
 
-    def show_text(self, string, duration='-1', level=None):
+    def show_text(self, string, duration='-1', level=0):
         """Mapped mpv show_text command, see man mpv(1)."""
         self.command('show_text', string, duration, level)
 
