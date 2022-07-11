@@ -577,8 +577,8 @@ class TestLifecycle(unittest.TestCase):
                 mock.call({'event': 'start-file', 'playlist_entry_id': 1}),
                 mock.call({'event': 'end-file', 'reason': 'error', 'playlist_entry_id': 1, 'file_error': 'no audio or video data played'})
             ], any_order=True)
+        time.sleep(1)
         handler.reset_mock()
-
         m.terminate()
         handler.assert_not_called()
 
@@ -600,6 +600,7 @@ class TestLifecycle(unittest.TestCase):
         t.start()
         time.sleep(1)
         m.terminate()
+        time.sleep(1)
         t.join()
         self.disp.stop()
         assert result.result()
@@ -620,6 +621,7 @@ class TestLifecycle(unittest.TestCase):
         m.mute = True
         t.join()
         m.terminate()
+        time.sleep(1)
         handler.assert_called()
         self.disp.stop()
 
@@ -655,6 +657,7 @@ class TestLifecycle(unittest.TestCase):
             # handle
             with m.prepare_and_wait_for_property('mute', level_sensitive=False):
                 m.terminate()
+        time.sleep(1)
         self.disp.stop()
 
     @unittest.skipIf('test_wait_for_property_event_overflow' in SKIP_TESTS, reason="kills X-Server first")
@@ -675,6 +678,8 @@ class TestLifecycle(unittest.TestCase):
                         m.command_async('script-message', 'foo', 'bar')
                     except:
                         pass
+        m.terminate()
+        time.sleep(1)
         self.disp.stop()
 
     def test_wait_for_event_shutdown(self):
