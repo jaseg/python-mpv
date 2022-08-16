@@ -292,7 +292,7 @@ class MpvEventID(c_int):
             FILE_LOADED, CLIENT_MESSAGE, VIDEO_RECONFIG, AUDIO_RECONFIG, SEEK, PLAYBACK_RESTART, PROPERTY_CHANGE)
 
     def __repr__(self):
-        return f'<MpvEventID {self.value} (_mpv_event_name(self.value).decode("utf-8"))>'
+        return f'<MpvEventID {self.value} {_mpv_event_name(self.value).decode("utf-8")}>'
 
     @classmethod
     def from_str(kls, s):
