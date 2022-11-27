@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ['mpv']
+
+[project]
+name = "python-mpv"
+version = "1.0.1"
+description = "A python interface to the mpv media player"
+readme = "README.rst"
+authors = [{name = "jaseg", email = "github@jaseg.net"}]
+license = {text = "GPLv3+"}
+requires-python = ">=3.7"
+keywords = ['mpv', 'library', 'video', 'audio', 'player', 'display', 'multimedia']
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'Environment :: X11 Applications',
+    'Intended Audience :: Developers',
+    'License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)',
+    'License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)',
+    'Natural Language :: English',
+    'Operating System :: POSIX',
+    'Programming Language :: C',
+    'Programming Language :: Python :: 3.7',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Topic :: Multimedia :: Sound/Audio :: Players',
+    'Topic :: Multimedia :: Video :: Display'
+]
+
+[project.urls]
+homepage = "https://github.com/jaseg/python-mpv"
+
+[project.optional-dependencies]
+screenshot_raw = ["Pillow"]
+test = ['xvfbwrapper']
