@@ -535,6 +535,115 @@ class TestStreams(unittest.TestCase):
         m.terminate()
         disp.stop()
 
+    def test_stream_open_exception(self):
+        disp = Xvfb()
+        disp.start()
+        m = mpv.MPV(vo=testvo, video=False)
+
+        @m.register_stream_protocol('raiseerror')
+        def open_fn(uri):
+            raise SystemError()
+
+        waiting = threading.Semaphore()
+        result = Future()
+        def run():
+            result.set_running_or_notify_cancel()
+            try:
+                waiting.release()
+                m.wait_for_playback()
+                result.set_result(False)
+            except SystemError:
+                result.set_result(True)
+            except Exception:
+                result.set_result(False)
+
+        t = threading.Thread(target=run, daemon=True)
+        t.start()
+
+        with waiting:
+            time.sleep(0.2)
+            m.play('raiseerror://foo')
+
+        m.wait_for_playback(catch_errors=False)
+        try:
+            assert result.result()
+        finally:
+            m.terminate()
+            disp.stop()
+
+    def test_python_stream_exception(self):
+        disp = Xvfb()
+        disp.start()
+        m = mpv.MPV(vo=testvo)
+
+        @m.python_stream('foo')
+        def foo_gen():
+            with open(TESTVID, 'rb') as f:
+                yield f.read(100)
+                raise SystemError()
+
+        waiting = threading.Semaphore()
+        result = Future()
+        def run():
+            result.set_running_or_notify_cancel()
+            try:
+                waiting.release()
+                m.wait_for_playback()
+                result.set_result(False)
+            except SystemError:
+                result.set_result(True)
+            except Exception:
+                result.set_result(False)
+
+        t = threading.Thread(target=run, daemon=True)
+        t.start()
+
+        with waiting:
+            time.sleep(0.2)
+            m.play('python://foo')
+
+        m.wait_for_playback(catch_errors=False)
+        try:
+            assert result.result()
+        finally:
+            m.terminate()
+            disp.stop()
+
+    def test_stream_open_forward(self):
+        disp = Xvfb()
+        disp.start()
+        m = mpv.MPV(vo=testvo, video=False)
+
+        @m.register_stream_protocol('raiseerror')
+        def open_fn(uri):
+            raise ValueError()
+
+        waiting = threading.Semaphore()
+        result = Future()
+        def run():
+            result.set_running_or_notify_cancel()
+            try:
+                waiting.release()
+                m.wait_for_playback()
+                result.set_result(True)
+            except Exception:
+                result.set_result(False)
+
+        t = threading.Thread(target=run, daemon=True)
+        t.start()
+
+        with waiting:
+            time.sleep(0.2)
+            m.play('raiseerror://foo')
+
+        m.wait_for_playback(catch_errors=False)
+        try:
+            assert result.result()
+        finally:
+            m.terminate()
+            disp.stop()
+
+
 
 class TestLifecycle(unittest.TestCase):
     def test_create_destroy(self):

@@ -898,10 +898,13 @@ class MPV(object):
         try:
             yield
         except Exception as e:
-            try:
-                fut = next(iter(self._exception_futures))
-                fut.set_exception(e)
-            except StopIteration:
+            for fut in self._exception_futures:
+                try:
+                    fut.set_exception(e)
+                    break
+                except InvalidStateError:
+                    pass
+            else:
                 warn(f'Unhandled exception on python-mpv event loop: {e}\n{traceback.format_exc()}', RuntimeWarning)
 
     def _loop(self):
@@ -1087,7 +1090,6 @@ class MPV(object):
 
         @self.event_callback(*event_types)
         def target_handler(evt):
-
             try:
                 rv = cond(evt)
                 if rv:
@@ -1801,11 +1803,16 @@ class MPV(object):
                 except ValueError:
                     return ErrorCode.LOADING_FAILED
                 except Exception as e:
-                    try:
-                        fut = next(iter(self._exception_futures))
-                        fut.set_exception(e)
-                    except StopIteration:
+                    for fut in self._exception_futures:
+                        try:
+                            fut.set_exception(e)
+                            break
+                        except InvalidStateError:
+                            pass
+                    else:
                         warnings.warn(f'Unhandled exception {e} inside stream open callback for URI {uri}\n{traceback.format_exc()}')
+
+
 
                     return ErrorCode.LOADING_FAILED
 
@@ -1817,6 +1824,7 @@ class MPV(object):
                         for i in range(len(data)):
                             buf[i] = data[i]
                         return len(data)
+                    return -1
                 read = cb_info.contents.read = StreamReadFn(read_backend)
 
                 def close_backend(_userdata):
@@ -1832,12 +1840,14 @@ class MPV(object):
                     def seek_backend(_userdata, offx):
                         with self._enqueue_exceptions():
                             return frontend.seek(offx)
+                        return ErrorCode.GENERIC
                     seek = cb_info.contents.seek = StreamSeekFn(seek_backend)
 
                 if hasattr(frontend, 'size') and frontend.size is not None:
                     def size_backend(_userdata):
                         with self._enqueue_exceptions():
                             return frontend.size
+                        return 0
                     size = cb_info.contents.size = StreamSizeFn(size_backend)
 
                 if hasattr(frontend, 'cancel'):
