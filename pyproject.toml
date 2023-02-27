@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 py-modules = ['mpv']
 
 [project]
-name = "python-mpv"
+name = "mpv"
 version = "v1.0.2"
 description = "A python interface to the mpv media player"
 readme = "README.rst"

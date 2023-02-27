@@ -11,7 +11,7 @@ Installation
 
 .. code:: bash
 
-    pip install python-mpv
+    pip install mpv
 
 
 ...though you can also realistically just copy `mpv.py`_ into your project as it's all nicely contained in one file.
