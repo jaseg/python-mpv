@@ -7,7 +7,7 @@ py-modules = ['mpv']
 
 [project]
 name = "mpv"
-version = "v1.0.2"
+version = "v1.0.3"
 description = "A python interface to the mpv media player"
 readme = "README.rst"
 authors = [{name = "jaseg", email = "mpv@jaseg.de"}]
