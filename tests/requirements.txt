@@ -1,2 +1,2 @@
-xvfbwrapper>=0.2.9
+PyVirtualDisplay>=3.0
 pytest>=7.1.2

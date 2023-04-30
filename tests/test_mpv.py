@@ -31,11 +31,11 @@ import mpv
 
 
 if os.name == 'nt':
-  Xvfb = mock.Mock()
+  Display = mock.Mock()
   testvo='gpu'
 
 else:
-  from xvfbwrapper import Xvfb
+  from pyvirtualdisplay import Display
   testvo='x11'
 
 
@@ -54,7 +54,7 @@ def timed_print():
 
 class MpvTestCase(unittest.TestCase):
     def setUp(self):
-        self.disp = Xvfb()
+        self.disp = Display()
         self.disp.start()
         self.m = mpv.MPV(vo=testvo, loglevel='debug', log_handler=timed_print())
 
@@ -444,7 +444,7 @@ class TestStreams(unittest.TestCase):
     def test_python_stream(self):
         handler = mock.Mock()
 
-        disp = Xvfb()
+        disp = Display()
         disp.start()
         m = mpv.MPV(vo=testvo)
         def cb(evt):
@@ -502,7 +502,7 @@ class TestStreams(unittest.TestCase):
         stream_mock.seek = mock.Mock(return_value=0)
         stream_mock.read = mock.Mock(return_value=b'')
 
-        disp = Xvfb()
+        disp = Display()
         disp.start()
         m = mpv.MPV(vo=testvo, video=False)
         def cb(evt):
@@ -536,7 +536,7 @@ class TestStreams(unittest.TestCase):
         disp.stop()
 
     def test_stream_open_exception(self):
-        disp = Xvfb()
+        disp = Display()
         disp.start()
         m = mpv.MPV(vo=testvo, video=False)
 
@@ -572,7 +572,7 @@ class TestStreams(unittest.TestCase):
             disp.stop()
 
     def test_python_stream_exception(self):
-        disp = Xvfb()
+        disp = Display()
         disp.start()
         m = mpv.MPV(vo=testvo)
 
@@ -610,7 +610,7 @@ class TestStreams(unittest.TestCase):
             disp.stop()
 
     def test_stream_open_forward(self):
-        disp = Xvfb()
+        disp = Display()
         disp.start()
         m = mpv.MPV(vo=testvo, video=False)
 
@@ -692,7 +692,7 @@ class TestLifecycle(unittest.TestCase):
         handler.assert_not_called()
 
     def test_wait_for_property_negative(self):
-        self.disp = Xvfb()
+        self.disp = Display()
         self.disp.start()
         m = mpv.MPV(vo=testvo)
         m.play(TESTVID)
@@ -715,7 +715,7 @@ class TestLifecycle(unittest.TestCase):
         assert result.result()
 
     def test_wait_for_property_positive(self):
-        self.disp = Xvfb()
+        self.disp = Display()
         self.disp.start()
         handler = mock.Mock()
         m = mpv.MPV(vo=testvo)
@@ -735,7 +735,7 @@ class TestLifecycle(unittest.TestCase):
         self.disp.stop()
 
     def test_wait_for_event(self):
-        self.disp = Xvfb()
+        self.disp = Display()
         self.disp.start()
         m = mpv.MPV(vo=testvo)
         m.play(TESTVID)
@@ -757,7 +757,7 @@ class TestLifecycle(unittest.TestCase):
         assert result.result()
 
     def test_wait_for_property_shutdown(self):
-        self.disp = Xvfb()
+        self.disp = Display()
         self.disp.start()
         m = mpv.MPV(vo=testvo)
         m.play(TESTVID)
@@ -771,7 +771,7 @@ class TestLifecycle(unittest.TestCase):
 
     @unittest.skipIf('test_wait_for_property_event_overflow' in SKIP_TESTS, reason="kills X-Server first")
     def test_wait_for_property_event_overflow(self):
-        self.disp = Xvfb()
+        self.disp = Display()
         self.disp.start()
         m = mpv.MPV(vo=testvo)
         m.play(TESTVID)
@@ -792,7 +792,7 @@ class TestLifecycle(unittest.TestCase):
         self.disp.stop()
 
     def test_wait_for_event_shutdown(self):
-        self.disp = Xvfb()
+        self.disp = Display()
         self.disp.start()
         m = mpv.MPV(vo=testvo)
         m.play(TESTVID)
@@ -802,7 +802,7 @@ class TestLifecycle(unittest.TestCase):
         self.disp.stop()
 
     def test_wait_for_shutdown(self):
-        self.disp = Xvfb()
+        self.disp = Display()
         self.disp.start()
         m = mpv.MPV(vo=testvo)
         m.play(TESTVID)
@@ -814,7 +814,7 @@ class TestLifecycle(unittest.TestCase):
 
     def test_log_handler(self):
         handler = mock.Mock()
-        self.disp = Xvfb()
+        self.disp = Display()
         self.disp.start()
         m = mpv.MPV(vo=testvo, log_handler=handler)
         m.play(TESTVID)
