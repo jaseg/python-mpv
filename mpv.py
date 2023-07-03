@@ -443,9 +443,12 @@ class MpvEventLogMessage(Structure):
         return lazy_decoder(self._text)
 
 class MpvEventEndFile(Structure):
-    _fields_ = [('reason', c_int),
-                ('error', c_int)]
-
+    _fields_ = [
+        ('reason', c_int),
+        ('error', c_int),
+        ('playlist_entry_id', c_ulonglong),
+    ]
+    
     EOF                 = 0
     RESTARTED           = 1
     ABORTED             = 2
