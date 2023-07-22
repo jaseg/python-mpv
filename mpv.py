@@ -447,6 +447,8 @@ class MpvEventEndFile(Structure):
         ('reason', c_int),
         ('error', c_int),
         ('playlist_entry_id', c_ulonglong),
+        ('playlist_insert_id', c_ulonglong),
+        ('playlist_insert_num_entries', c_int),
     ]
     
     EOF                 = 0
