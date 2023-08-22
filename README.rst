@@ -70,7 +70,7 @@ Threading
 ~~~~~~~~~
 
 The ``mpv`` module starts one thread for event handling, since MPV sends events that must be processed quickly. The
-event queue has a fixed maxmimum size and some operations can cause a large number of events to be sent.
+event queue has a fixed maximum size and some operations can cause a large number of events to be sent.
 
 If you want to handle threading yourself, you can pass ``start_event_thread=False`` to the ``MPV`` constructor and
 manually call the ``MPV`` object's ``_loop`` function. If you have some strong need to not use threads and use some
