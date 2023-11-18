@@ -17,7 +17,7 @@ if [ -n "$(git diff --name-only --cached)" ]; then
 fi
 
 sed -i "s/^\\(\\s*version\\s*=\\s*['\"]\\)[^'\"]*\\(['\"]\\s*\\)$/\\1v"$VER"\\2/" pyproject.toml
-sed -i "s/^\\(\\s*version\\s*=\\s*['\"]\\)[^'\"]*\\(['\"]\\s*\\)$/\\1"$VER"\\2/" mpv.py
+sed -i "s/^\\(\\s*__version__\\s*=\\s*['\"]\\)[^'\"]*\\(['\"]\\s*\\)$/\\1"$VER"\\2/" mpv.py
 git add pyproject.toml mpv.py
 git commit -m "Version $VER" --no-edit
 git -c user.signingkey=E36F75307F0A0EC2D145FF5CED7A208EEEC76F2D -c user.email=python-mpv@jaseg.de tag -s "v$VER" -m "Version $VER"
