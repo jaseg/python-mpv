@@ -1982,6 +1982,7 @@ class MPV(object):
         q.put(EOF)
 
     def play_bytes(self, data):
+        """ Play the given bytes object as a single file. """
         frame = sys._getframe()
         stream_name = f'__python_mpv_play_generator_{hash(frame)}'
 
