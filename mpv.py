@@ -1944,6 +1944,43 @@ class MPV(object):
             return cb
         return register
 
+    @contextmanager
+    def play_context(self):
+        """ Context manager for streaming bytes straight into libmpv.
+
+        This is a convenience wrapper around python_stream. play_context returns a write method, which you can use in
+        the body of the context manager to feed libmpv bytes. All bytes you feed in with write() in the body of a single
+        call of this context manager are treated as one single file. A queue is used internally, so this function is
+        thread-safe. The queue is unlimited, so it cannot block and is safe to call from async code. You can use this
+        function to stream chunked data, e.g. from the network.
+
+        Use it like this:
+
+        with m.play_context() as write:
+            with open(TESTVID, 'rb') as f:
+                while (chunk := f.read(65536)): # Get some chunks of bytes
+                    write(chunk)
+        """
+        q = queue.Queue()
+
+        frame = sys._getframe()
+        stream_name = f'__python_mpv_play_generator_{hash(frame)}'
+        EOF = frame # Get some unique object as EOF marker
+        @self.python_stream(stream_name)
+        def reader():
+            while (chunk := q.get()) is not EOF:
+                if chunk:
+                    yield chunk
+            reader.unregister()
+
+        def write(chunk):
+            q.put(chunk)
+
+        # Start playback before yielding, the first call to reader() will block until write is called at least once.
+        self.play(f'python://{stream_name}')
+        yield write
+        q.put(EOF)
+
     def python_stream_catchall(self, cb):
         """ Register a catch-all python stream to be called when no name matches can be found. Use this decorator on a
         function that takes a name argument and returns a (generator, size) tuple (with size being None if unknown).
