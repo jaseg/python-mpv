@@ -1981,6 +1981,17 @@ class MPV(object):
         yield write
         q.put(EOF)
 
+    def play_bytes(self, data):
+        frame = sys._getframe()
+        stream_name = f'__python_mpv_play_generator_{hash(frame)}'
+
+        @self.python_stream(stream_name)
+        def reader():
+            yield data
+            reader.unregister() # unregister itself
+
+        self.play(f'python://{stream_name}')
+
     def python_stream_catchall(self, cb):
         """ Register a catch-all python stream to be called when no name matches can be found. Use this decorator on a
         function that takes a name argument and returns a (generator, size) tuple (with size being None if unknown).

@@ -664,6 +664,24 @@ class TestStreams(unittest.TestCase):
         m.terminate()
         disp.stop()
 
+    def test_play_bytes(self):
+        handler = mock.Mock()
+
+        disp = Display()
+        disp.start()
+        m = mpv.MPV(vo=testvo)
+        def cb(evt):
+            handler(evt.as_dict(decoder=mpv.lazy_decoder))
+        m.register_event_callback(cb)
+
+        with open(TESTVID, 'rb') as f:
+            m.play_bytes(f.read())
+
+        m.wait_for_playback()
+        handler.assert_any_call({'event': 'end-file', 'reason': 'eof', 'playlist_entry_id': 1})
+        m.terminate()
+        disp.stop()
+
 
 class TestLifecycle(unittest.TestCase):
     def test_create_destroy(self):
