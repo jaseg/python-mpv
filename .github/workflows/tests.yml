@@ -60,7 +60,7 @@ jobs:
           function execute() { echo -e "\033[0;34m$*\033[0m"; "$@"; }
           
           execute source venv/bin/activate
-          execute xvfb-run python -m pytest
+          execute xvfb-run python -m unittest
 
   test-windows:
     runs-on: windows-latest
