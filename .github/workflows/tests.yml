@@ -19,7 +19,7 @@ jobs:
     name: 'Linux - Python'
     strategy:
       matrix:
-        python-version: [ '3.8', '3.9', '3.10' ]
+        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12' ]
     env:
       DISPLAY: :0
       PY_MPV_SKIP_TESTS: >-
@@ -66,7 +66,7 @@ jobs:
     name: 'Windows - Python'
     strategy:
       matrix:
-        python-version: [ '3.8', '3.9', '3.10' ]
+        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12' ]
     steps:
       - uses: actions/checkout@v3
       - name: 'Install Python'
