@@ -103,4 +103,4 @@ jobs:
           function execute() { echo -e "\033[0;34m$*\033[0m"; "$@"; }
 
           execute source venv/Scripts/activate
-          execute python -m pytest
+          execute python -m unittest
