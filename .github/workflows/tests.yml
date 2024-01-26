@@ -25,9 +25,9 @@ jobs:
       PY_MPV_SKIP_TESTS: >-
         test_wait_for_property_event_overflow
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: 'Install Python'
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: 'Update Packages'
@@ -68,9 +68,9 @@ jobs:
       matrix:
         python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12' ]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: 'Install Python'
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: 'Provide libmpv'
