@@ -77,12 +77,16 @@ jobs:
         run: |
           function execute() { echo -e "\033[0;34m$*\033[0m"; "$@"; }
           
-          ARTIFACT="mpv-dev-x86_64-20220619-git-c1a46ec.7z"
+          ARTIFACT="mpv-dev-x86_64-20240121-git-a39f9b6.7z"
+          SHA1="ba844abcf874c832108f497af889487103967c67"
           URL="https://sourceforge.net/projects/mpv-player-windows/files/libmpv/$ARTIFACT"
           
           execute curl -L -O "$URL"
+          echo -e "\033[0;34mecho -n $SHA1 $ARTIFACT > $ARTIFACT.sha1\033[0m"
+          echo -n "$SHA1 $ARTIFACT" > "$ARTIFACT.sha1"
+          execute sha1sum --check "$ARTIFACT.sha1"
           execute 7z x "$ARTIFACT"
-          execute mv mpv-2.dll tests
+          execute mv libmpv-2.dll tests
       - name: 'Setup Test Environment'
         run: |
           function execute() { echo -e "\033[0;34m$*\033[0m"; "$@"; }
