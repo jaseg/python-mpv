@@ -17,7 +17,7 @@
 #
 # You can find copies of the GPLv2 and LGPLv2.1 licenses in the project repository's LICENSE.GPL and LICENSE.LGPL files.
 
-__version__ = '1.0.5'
+__version__ = '1.0.6'
 
 from ctypes import *
 import ctypes.util
