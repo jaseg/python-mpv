@@ -32,12 +32,10 @@ On Windows you can place libmpv anywhere in your ``%PATH%`` (e.g. next to ``pyth
 into ctypes, which is different to the one Windows uses internally. Consult `this stackoverflow post
 <https://stackoverflow.com/a/23805306>`__ for details.
 
-Python >= 3.7 (officially)
-..........................
-The ``main`` branch officially only supports recent python releases (3.5 onwards), but there is the somewhat outdated
-but functional `py2compat branch`_ providing Python 2 compatibility.
+Python >= 3.9
+.............
+We only support python stable releases from the last couple of years. We only test the current stable python release. If you find a compatibility issue with an older python version that still has upstream support (that is less than about four years old), feel free to open an issue_ and we'll have a look.
 
-.. _`py2compat branch`: https://github.com/jaseg/python-mpv/tree/py2compat
 .. _`issue`: https://github.com/jaseg/python-mpv/issues
 .. _`pull request`: https://github.com/jaseg/python-mpv/pulls
 
