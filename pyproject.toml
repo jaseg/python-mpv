@@ -12,7 +12,7 @@ description = "A python interface to the mpv media player"
 readme = "README.rst"
 authors = [{name = "jaseg", email = "mpv@jaseg.de"}]
 license = {text = "GPLv2+ or LGPLv2.1+"}
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 keywords = ['mpv', 'library', 'video', 'audio', 'player', 'display', 'multimedia']
 classifiers = [
     'Development Status :: 5 - Production/Stable',
@@ -23,10 +23,10 @@ classifiers = [
     'Natural Language :: English',
     'Operating System :: POSIX',
     'Programming Language :: C',
-    'Programming Language :: Python :: 3.7',
-    'Programming Language :: Python :: 3.8',
     'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
     'Topic :: Multimedia :: Sound/Audio :: Players',
     'Topic :: Multimedia :: Video :: Display'
 ]
