@@ -1036,30 +1036,38 @@ class MPV(object):
                 rv = cond(val)
                 if rv:
                     result.set_result(rv)
+
+            except InvalidStateError:
+                pass
+
             except Exception as e:
                 try:
                     result.set_exception(e)
-                except InvalidStateError:
+                except:
                     pass
-            except InvalidStateError:
-                pass
-        self.observe_property(name, observer)
-        err_unregister = self._set_error_handler(result)
 
         try:
             result.set_running_or_notify_cancel()
+
+            self.observe_property(name, observer)
+            err_unregister = self._set_error_handler(result)
             if catch_errors:
                 self._exception_futures.add(result)
 
             yield result
 
-            rv = cond(getattr(self, name.replace('-', '_')))
-            if level_sensitive and rv:
-                result.set_result(rv)
+            if level_sensitive:
+                rv = cond(getattr(self, name.replace('-', '_')))
+                if rv:
+                    result.set_result(rv)
+                    return
 
-            else:
-                self.check_core_alive()
-                result.result(timeout)
+            self.check_core_alive()
+            result.result(timeout)
+
+        except InvalidStateError:
+            pass
+
         finally:
             err_unregister()
             self.unobserve_property(name, observer)
@@ -1821,9 +1829,6 @@ class MPV(object):
                             pass
                     else:
                         warnings.warn(f'Unhandled exception {e} inside stream open callback for URI {uri}\n{traceback.format_exc()}')
-
-
-
                     return ErrorCode.LOADING_FAILED
 
                 cb_info.contents.cookie = None

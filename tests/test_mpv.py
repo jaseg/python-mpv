@@ -23,7 +23,7 @@ from contextlib import contextmanager
 import os.path
 import os
 import time
-from concurrent.futures import Future
+from concurrent.futures import Future, InvalidStateError
 
 os.environ["PATH"] = os.path.dirname(__file__) + os.pathsep + os.environ["PATH"]
 
@@ -915,6 +915,25 @@ class CommandTests(MpvTestCase):
 
 class RegressionTests(MpvTestCase):
 
+    def test_wait_for_property_concurrency(self):
+        players = [mpv.MPV(vo=testvo, loglevel='debug', log_handler=timed_print()) for i in range(2)]
+
+        try:
+            for _ in range(150):
+                for player in players:
+                    player.play('tests/test.webm')
+                for player in players:
+                    player.wait_for_property('seekable')
+                for player in players:
+                    player.seek(0, reference='absolute', precision='exact')
+
+        except InvalidStateError:
+            self.fail('InvalidStateError thrown from wait_for_property')
+
+        finally:
+            for player in players:
+                player.terminate()
+
     def test_unobserve_property_runtime_error(self):
         """
         Ensure a `RuntimeError` is not thrown within
@@ -966,3 +985,4 @@ class RegressionTests(MpvTestCase):
         m.slang = 'ru'
         m.terminate() # needed for synchronization of event thread
         handler.assert_has_calls([mock.call('slang', ['jp']), mock.call('slang', ['ru'])])
+
