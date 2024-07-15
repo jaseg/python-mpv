@@ -2064,7 +2064,10 @@ class MPV(object):
     def _set_property(self, name, value):
         self.check_core_alive()
         ename = name.encode('utf-8')
-        if isinstance(value, (list, set, dict)):
+        if isinstance(value, dict):
+            _1, _2, _3, pointer = _make_node_str_map(value)
+            _mpv_set_property(self.handle, ename, MpvFormat.NODE, pointer)
+        elif isinstance(value, (list, set)):
             _1, _2, _3, pointer = _make_node_str_list(value)
             _mpv_set_property(self.handle, ename, MpvFormat.NODE, pointer)
         else:
