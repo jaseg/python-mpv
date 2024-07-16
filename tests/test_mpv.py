@@ -210,6 +210,11 @@ class TestProperties(MpvTestCase):
             # See comment in test_property_decoding_invalid_utf8
             self.m.osd.alang
 
+    def test_dict_valued_property(self):
+        nasty_stuff = '\xe2\x80\x8e Mozilla/5.0 Foobar                 \xe2\x80\x8e  \xe2\x80\x81'
+        self.m.ytdl_raw_options = {'user-agent': nasty_stuff}
+        self.assertEqual(self.m.ytdl_raw_options, {'user-agent': nasty_stuff})
+
     def test_option_read(self):
         self.m.loop = 'inf'
         self.m.play(TESTVID)
