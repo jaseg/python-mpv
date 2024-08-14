@@ -1375,11 +1375,17 @@ class MPV(object):
 
     def quit(self, code=None):
         """Mapped mpv quit command, see man mpv(1)."""
-        self.command('quit', code)
+        if code is not None:
+            self.command('quit', code)
+        else:
+            self.command('quit')
 
     def quit_watch_later(self, code=None):
         """Mapped mpv quit_watch_later command, see man mpv(1)."""
-        self.command('quit_watch_later', code)
+        if code is not None:
+            self.command('quit_watch_later', code)
+        else:
+            self.command('quit_watch_later')
 
     def stop(self, keep_playlist=False):
         """Mapped mpv stop command, see man mpv(1)."""
