@@ -38,7 +38,15 @@ if os.name == 'nt':
     dll = ctypes.util.find_library('mpv-2.dll') or ctypes.util.find_library('libmpv-2.dll') or ctypes.util.find_library('mpv-1.dll')
     if dll is None:
         raise OSError('Cannot find mpv-1.dll, mpv-2.dll or libmpv-2.dll in your system %PATH%. One way to deal with this is to ship the dll with your script and put the directory your script is in into %PATH% before "import mpv": os.environ["PATH"] = os.path.dirname(__file__) + os.pathsep + os.environ["PATH"] If mpv-1.dll is located elsewhere, you can add that path to os.environ["PATH"].')
-    backend = CDLL(dll)
+    # flags argument: LOAD_LIBRARY_SEARCH_DEFAULT_DIRS | LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR
+    # cf. https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibraryexa
+    try:
+        backend = CDLL(dll, 0x00001000 | 0x00000100)
+    except Exception as e:
+        if not os.path.isabs(dll):
+            raise OSError(f'ctypes.find_library found mpv.dll at {dll}, but ctypes.CDLL could not load it. It looks like find_library found mpv.dll under a relative path entry in %PATH%. Please make sure all paths in %PATH% are absolute. Instead of trying to load mpv.dll from the current working directory, put it somewhere next to your script and add that path to %PATH% using os.environ["PATH"] = os.path.dirname(__file__) + os.pathsep + os.environ["PATH"]') from e
+        else:
+            raise OSError(f'ctypes.find_library found mpv.dll at {dll}, but ctypes.CDLL could not load it.') from e
     fs_enc = 'utf-8'
 else:
     import locale
