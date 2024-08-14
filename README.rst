@@ -29,8 +29,9 @@ submit a `pull request`_ on github.
 
 On Windows you can place libmpv anywhere in your ``%PATH%`` (e.g. next to ``python.exe``) or next to this module's
 ``mpv.py``.  Before falling back to looking in the mpv module's directory, python-mpv uses the DLL search order built
-into ctypes, which is different to the one Windows uses internally. Consult `this stackoverflow post
-<https://stackoverflow.com/a/23805306>`__ for details.
+into ctypes, which is different to the one Windows uses internally. You can modify `%PATH%` before importing python-mpv
+to modify where python-mpv looks for the DLL. Consult `this stackoverflow post <https://stackoverflow.com/a/23805306>`__
+for details.
 
 Python >= 3.9
 .............
