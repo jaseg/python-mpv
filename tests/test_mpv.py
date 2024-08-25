@@ -49,7 +49,8 @@ def timed_print():
     start_time = time.time()
     def do_print(level, prefix, text):
         td = time.time() - start_time
-        print('{:.3f} [{}] {}: {}'.format(td, level, prefix, text), flush=True)
+        print('{:.3f} [{}] {}: {}'.format(td, level, prefix, text.strip()), flush=True)
+    return do_print
 
 
 class MpvTestCase(unittest.TestCase):
@@ -922,11 +923,10 @@ class RegressionTests(MpvTestCase):
 
     def test_wait_for_property_concurrency(self):
         players = [mpv.MPV(vo=testvo, loglevel='debug', log_handler=timed_print()) for i in range(2)]
-
         try:
             for _ in range(150):
                 for player in players:
-                    player.play('tests/test.webm')
+                    player.loadfile('tests/test.webm', loop='inf')
                 for player in players:
                     player.wait_for_property('seekable')
                 for player in players:
