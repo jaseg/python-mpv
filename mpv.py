@@ -1956,6 +1956,10 @@ class MPV(object):
         Any given name can only be registered once. The catch-all can also only be registered once. To unregister a
         stream, call the .unregister function set on the callback.
 
+        If name is None (the default), a name and corresponding python:// URI are automatically generated. You can
+        access the name through the .stream_name property set on the callback, and the stream URI for passing into
+        mpv.play(...) through the .stream_uri property.
+
         The generator signals EOF by returning, manually raising StopIteration or by yielding b'', an empty bytes
         object.
 
@@ -1972,16 +1976,25 @@ class MPV(object):
         reader.unregister()
         """
         def register(cb):
+            nonlocal name
+            if name is None:
+                name = f'__python_mpv_anonymous_python_stream_{id(cb)}__'
+
             if name in self._python_streams:
                 raise KeyError('Python stream name "{}" is already registered'.format(name))
+
             self._python_streams[name] = (cb, size)
             def unregister():
                 if name not in self._python_streams or\
                         self._python_streams[name][0] is not cb: # This is just a basic sanity check
                     raise RuntimeError('Python stream has already been unregistered')
                 del self._python_streams[name]
+
             cb.unregister = unregister
+            cb.stream_name = name
+            cb.stream_uri = f'python://{name}'
             return cb
+
         return register
 
     @contextmanager
@@ -2003,10 +2016,8 @@ class MPV(object):
         """
         q = queue.Queue()
 
-        frame = sys._getframe()
-        stream_name = f'__python_mpv_play_generator_{hash(frame)}'
-        EOF = frame # Get some unique object as EOF marker
-        @self.python_stream(stream_name)
+        EOF = object() # Get some unique object as EOF marker
+        @self.python_stream()
         def reader():
             while (chunk := q.get()) is not EOF:
                 if chunk:
@@ -2017,21 +2028,19 @@ class MPV(object):
             q.put(chunk)
 
         # Start playback before yielding, the first call to reader() will block until write is called at least once.
-        self.play(f'python://{stream_name}')
+        self.play(reader.stream_uri)
         yield write
         q.put(EOF)
 
     def play_bytes(self, data):
         """ Play the given bytes object as a single file. """
-        frame = sys._getframe()
-        stream_name = f'__python_mpv_play_generator_{hash(frame)}'
 
-        @self.python_stream(stream_name)
+        @self.python_stream()
         def reader():
             yield data
             reader.unregister() # unregister itself
 
-        self.play(f'python://{stream_name}')
+        self.play(reader.stream_uri)
 
     def python_stream_catchall(self, cb):
         """ Register a catch-all python stream to be called when no name matches can be found. Use this decorator on a
