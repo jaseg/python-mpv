@@ -1698,9 +1698,10 @@ class MPV(object):
     def _binding_name(callback_or_cmd):
         return 'py_kb_{:016x}'.format(hash(callback_or_cmd)&0xffffffffffffffff)
 
-    def on_key_press(self, keydef, mode='force'):
+    def on_key_press(self, keydef, mode='force', repetition=False):
         """Function decorator to register a simplified key binding. The callback is called whenever the key given is
-        *pressed*.
+        *pressed*. When the ``repetition=True`` is passed, the callback is called again repeatedly while the key is held
+        down.
 
         To unregister the callback function, you can call its ``unregister_mpv_key_bindings`` attribute::
 
@@ -1720,8 +1721,8 @@ class MPV(object):
         def register(fun):
             @self.key_binding(keydef, mode)
             @wraps(fun)
-            def wrapper(state='p-', name=None, char=None):
-                if state[0] in ('d', 'p'):
+            def wrapper(state='p-', name=None, char=None, *_):
+                if state[0] in ('d', 'p') or (repetition and state[0] == 'r'):
                     fun()
             return wrapper
         return register
@@ -1729,8 +1730,11 @@ class MPV(object):
     def key_binding(self, keydef, mode='force'):
         """Function decorator to register a low-level key binding.
 
-        The callback function signature is ``fun(key_state, key_name)`` where ``key_state`` is either ``'U'`` for "key
-        up" or ``'D'`` for "key down".
+        The callback function signature is ``fun(key_state, key_name, key_char, scale, arg)``.
+
+        The key_state contains up to three chars, corresponding to the regex ``[udr]([m-][c-]?)?``. ``[udr]`` means
+        "key up", "key down", or "repetition" for when the key is held down. "m" indicates mouse events, and "c"
+        indicates key up events resulting from a logical cancellation. For details check out the mpv man page.
 
         The keydef format is: ``[Shift+][Ctrl+][Alt+][Meta+]<key>`` where ``<key>`` is either the literal character the
         key produces (ASCII or Unicode character), or a symbolic name (as printed by ``mpv --input-keylist``).
@@ -1785,12 +1789,12 @@ class MPV(object):
             raise TypeError('register_key_binding expects either an str with an mpv command or a python callable.')
         self.command('enable-section', binding_name, 'allow-hide-cursor+allow-vo-dragging')
 
-    def _handle_key_binding_message(self, binding_name, key_state, key_name=None, key_char=None):
+    def _handle_key_binding_message(self, binding_name, key_state, key_name=None, key_char=None, scale=None, arg=None, *_):
         binding_name = binding_name.decode('utf-8')
         key_state = key_state.decode('utf-8')
         key_name = key_name.decode('utf-8') if key_name is not None else None
         key_char = key_char.decode('utf-8') if key_char is not None else None
-        self._key_binding_handlers[binding_name](key_state, key_name, key_char)
+        self._key_binding_handlers[binding_name](key_state, key_name, key_char, scale, arg)
 
     def unregister_key_binding(self, keydef):
         """Unregister a key binding by keydef."""
