@@ -36,7 +36,7 @@ if os.name == 'nt':
 
 else:
   from pyvirtualdisplay import Display
-  testvo='x11'
+  testvo=os.environ.get('PY_MPV_TEST_VO', 'x11')
 
 
 TESTVID = os.path.join(os.path.dirname(__file__), 'test.webm')
@@ -990,4 +990,3 @@ class RegressionTests(MpvTestCase):
         m.slang = 'ru'
         m.terminate() # needed for synchronization of event thread
         handler.assert_has_calls([mock.call('slang', ['jp']), mock.call('slang', ['ru'])])
-
