@@ -36,4 +36,8 @@ homepage = "https://github.com/jaseg/python-mpv"
 
 [project.optional-dependencies]
 screenshot_raw = ["Pillow"]
-test = ['PyVirtualDisplay']
+test = [
+    'PyVirtualDisplay',
+    'pytest',
+    'pytest-rerunfailures'
+]

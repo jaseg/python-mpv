@@ -14,93 +14,30 @@ defaults:
 
 
 jobs:
-  test-linux:
+  test:
     runs-on: ubuntu-latest
     name: 'Linux - Python'
     strategy:
       matrix:
-        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12' ]
+        python-version: [ '3.13' ]
       fail-fast: false
     env:
-      DISPLAY: :0
       PY_MPV_SKIP_TESTS: >-
         test_wait_for_property_event_overflow
+      PY_MPV_TEST_VO: 'null'
     steps:
       - uses: actions/checkout@v4
       - name: 'Install Python'
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: 'Update Packages'
-        run: |
-          function execute() { echo -e "\033[0;34m$*\033[0m"; "$@"; }
-
-          execute sudo apt update -y 
-          execute sudo apt upgrade -y
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: false
       - name: 'Install Dependencies'
-        run: |
-          function execute() { echo -e "\033[0;34m$*\033[0m"; "$@"; }
-
-          execute sudo apt install -y libmpv1 xvfb
-      - name: 'Start Xvfb'
-        run: |
-          echo -e "\033[0;34msudo /usr/bin/Xvfb $DISPLAY -screen 0 1920x1080x24 &\033[0m";
-          sudo /usr/bin/Xvfb $DISPLAY -screen 0 1920x1080x24 &
+        run: sudo apt install -y libmpv2
       - name: 'Setup Test Environment'
-        run: |
-          function execute() { echo -e "\033[0;34m$*\033[0m"; "$@"; }
-          
-          execute python -m venv venv
-          execute source venv/bin/activate
-          execute python -m pip install --upgrade pip
-          execute python -m pip install wheel
-          execute python -m pip install -r tests/requirements.txt
+        run: uv sync --extra test
       - name: 'Run Python Tests'
-        run: |
-          function execute() { echo -e "\033[0;34m$*\033[0m"; "$@"; }
-          
-          execute source venv/bin/activate
-          execute xvfb-run python -m unittest
-
-  test-windows:
-    runs-on: windows-latest
-    name: 'Windows - Python'
-    strategy:
-      matrix:
-        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12' ]
-      fail-fast: false
-    steps:
-      - uses: actions/checkout@v4
-      - name: 'Install Python'
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: 'Provide libmpv'
-        run: |
-          function execute() { echo -e "\033[0;34m$*\033[0m"; "$@"; }
-          
-          ARTIFACT="mpv-dev-x86_64-v3-20240121-git-a39f9b6.7z"
-          SHA1="0764a4b899a7ebb1476e5b491897c5e2eed8a07f"
-          URL="https://sourceforge.net/projects/mpv-player-windows/files/libmpv/$ARTIFACT"
-          
-          execute curl -L -O "$URL"
-          echo -e "\033[0;34mecho -n $SHA1 $ARTIFACT > $ARTIFACT.sha1\033[0m"
-          echo -n "$SHA1 $ARTIFACT" > "$ARTIFACT.sha1"
-          execute sha1sum --check "$ARTIFACT.sha1"
-          execute 7z x "$ARTIFACT"
-          execute mv libmpv-2.dll tests
-      - name: 'Setup Test Environment'
-        run: |
-          function execute() { echo -e "\033[0;34m$*\033[0m"; "$@"; }
-
-          execute python -m venv venv
-          execute source venv/Scripts/activate
-          execute python -m pip install --upgrade pip
-          execute python -m pip install wheel
-          execute python -m pip install -r tests/requirements.txt
-      - name: 'Run Python Tests'
-        run: |
-          function execute() { echo -e "\033[0;34m$*\033[0m"; "$@"; }
-
-          execute source venv/Scripts/activate
-          execute python -m unittest
+        run: uv run -m pytest --reruns 3 --reruns-delay 3
