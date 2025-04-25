@@ -1529,7 +1529,7 @@ class MPV(object):
         self.command('overlay_remove', overlay_id)
 
     def osd_overlay(self, overlay_id, data, res_x=0, res_y=720, z=0, hidden=False):
-        self.command('osd_overlay', id=overlay_id, data=data, res_x=res_x, res_y=res_Y, z=z, hidden=hidden,
+        self.command('osd_overlay', id=overlay_id, data=data, res_x=res_x, res_y=res_y, z=z, hidden=hidden,
         format='ass-events')
 
     def osd_overlay_remove(self, overlay_id):
